@@ -1,24 +1,25 @@
-export type WeightUnit = 'lb' | 'kg'
+import type { WeightUnit } from '../supabase/types'
 
-const poundsPerKilogram = 2.2046226218
-
-export function poundsToKilograms(pounds: number) {
-  return roundWeight(pounds / poundsPerKilogram)
-}
-
-export function kilogramsToPounds(kilograms: number) {
-  return roundWeight(kilograms * poundsPerKilogram)
-}
-
-export function convertWeight(value: number, from: WeightUnit, to: WeightUnit) {
-  if (from === to) {
-    return roundWeight(value)
-  }
-
-  return from === 'lb' ? poundsToKilograms(value) : kilogramsToPounds(value)
-}
-
-export function roundWeight(value: number) {
+export function roundToOneDecimal(value: number) {
   return Math.round(value * 10) / 10
 }
 
+export function poundsToKilograms(pounds: number) {
+  return roundToOneDecimal(pounds * 0.45359237)
+}
+
+export function kilogramsToPounds(kilograms: number) {
+  return roundToOneDecimal(kilograms / 0.45359237)
+}
+
+export function convertWeight(value: number, fromUnit: WeightUnit, toUnit: WeightUnit) {
+  if (fromUnit === toUnit) {
+    return roundToOneDecimal(value)
+  }
+
+  if (fromUnit === 'lb' && toUnit === 'kg') {
+    return poundsToKilograms(value)
+  }
+
+  return kilogramsToPounds(value)
+}
