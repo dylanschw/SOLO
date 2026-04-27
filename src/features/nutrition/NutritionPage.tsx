@@ -8,7 +8,8 @@ import {
   calculateSuggestedNutritionTarget,
   getNutritionChartPoints,
   getTodayNutritionLog,
-  summarizeNutrition
+  summarizeNutrition,
+  type ActivityLevel
 } from './lib/nutrition-stats'
 import {
   useActiveNutritionTarget,
@@ -62,6 +63,9 @@ export function NutritionPage() {
   const [targetMode, setTargetMode] = useState<'manual' | 'calculated'>('manual')
   const [goalType, setGoalType] = useState<NutritionGoalType>('maintain_weight')
   const [targetBodyweight, setTargetBodyweight] = useState('')
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel>('moderate')
+  const [weeklyChange, setWeeklyChange] = useState('0.5')
+  const [calculatedSummary, setCalculatedSummary] = useState<string | null>(null)
   const [targetCalories, setTargetCalories] = useState(target?.calories?.toString() ?? '')
   const [targetProtein, setTargetProtein] = useState(target?.protein_g?.toString() ?? '')
   const [targetCarbs, setTargetCarbs] = useState(target?.carbs_g?.toString() ?? '')
@@ -114,11 +118,24 @@ export function NutritionPage() {
         return
       }
 
+      const weeklyChangeValue = Number(weeklyChange)
+
+      if (!Number.isFinite(weeklyChangeValue) || weeklyChangeValue < 0) {
+        setErrorMessage('Enter a valid weekly rate of change.')
+        return
+      }
+
       const calculated = calculateSuggestedNutritionTarget({
         bodyweight: bodyweightValue,
         unit: preferredUnit,
-        goalType
+        goalType,
+        activityLevel,
+        weeklyChange: goalType === 'maintain_weight' ? 0 : weeklyChangeValue
       })
+
+      setCalculatedSummary(
+        `Estimated maintenance: ${calculated.maintenanceCalories} calories. Daily adjustment: ${calculated.calorieAdjustment} calories.`
+      )
 
       caloriesValue = calculated.calories
       proteinValue = calculated.proteinG
@@ -329,17 +346,60 @@ export function NutritionPage() {
           </label>
 
           {targetMode === 'calculated' ? (
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Bodyweight ({preferredUnit})</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={targetBodyweight}
-                onChange={(event) => setTargetBodyweight(event.target.value)}
-                placeholder={preferredUnit === 'lb' ? '180' : '82'}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
+            <div className="grid gap-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Bodyweight ({preferredUnit})</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={targetBodyweight}
+                  onChange={(event) => setTargetBodyweight(event.target.value)}
+                  placeholder={preferredUnit === 'lb' ? '180' : '82'}
+                  className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Activity level</span>
+                <select
+                  value={activityLevel}
+                  onChange={(event) => setActivityLevel(event.target.value as ActivityLevel)}
+                  className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                >
+                  <option value="sedentary">Sedentary, little activity</option>
+                  <option value="light">Light, some walking or light training</option>
+                  <option value="moderate">Moderate, lifting several days per week</option>
+                  <option value="high">High, hard training and active lifestyle</option>
+                </select>
+              </label>
+
+              {goalType !== 'maintain_weight' ? (
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">
+                    Desired weekly {goalType === 'gain_weight' ? 'gain' : 'loss'} ({preferredUnit}/week)
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.1"
+                    value={weeklyChange}
+                    onChange={(event) => setWeeklyChange(event.target.value)}
+                    placeholder={preferredUnit === 'lb' ? '0.5' : '0.25'}
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                  <p className="text-xs leading-5 text-stone-500 dark:text-stone-400">
+                    Conservative bulks are often around 0.25 to 0.5 lb per week. Faster changes are more aggressive and may be less accurate.
+                  </p>
+                </label>
+              ) : null}
+
+              {calculatedSummary ? (
+                <p className="rounded-xl bg-white p-3 text-sm text-stone-600 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-300 dark:ring-neutral-800">
+                  {calculatedSummary}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="grid grid-cols-2 gap-3">

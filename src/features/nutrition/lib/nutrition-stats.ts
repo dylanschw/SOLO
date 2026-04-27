@@ -1,4 +1,4 @@
-import type { NutritionGoalType } from '../../../lib/supabase/types'
+import type { NutritionGoalType, WeightUnit } from '../../../lib/supabase/types'
 import type { NutritionLog, NutritionTarget } from './nutrition'
 
 export type NutritionChartPoint = {
@@ -7,22 +7,41 @@ export type NutritionChartPoint = {
     protein: number
 }
 
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high'
+
 export type CalculatedNutritionTargetInput = {
     bodyweight: number
-    unit: 'lb' | 'kg'
+    unit: WeightUnit
     goalType: NutritionGoalType
+    activityLevel: ActivityLevel
+    weeklyChange: number
 }
 
 export type CalculatedNutritionTarget = {
     calories: number
     proteinG: number
+    maintenanceCalories: number
+    calorieAdjustment: number
 }
+
+const activityMultiplierByLevel = {
+    sedentary: 13,
+    light: 14,
+    moderate: 15,
+    high: 16
+} satisfies Record<ActivityLevel, number>
+
+const proteinMultiplierByGoal = {
+    gain_weight: 0.85,
+    lose_weight: 1,
+    maintain_weight: 0.85
+} satisfies Record<NutritionGoalType, number>
 
 function roundToNearestFive(value: number) {
     return Math.round(value / 5) * 5
 }
 
-function bodyweightToPounds(bodyweight: number, unit: 'lb' | 'kg') {
+function bodyweightToPounds(bodyweight: number, unit: WeightUnit) {
     if (unit === 'lb') {
         return bodyweight
     }
@@ -30,21 +49,38 @@ function bodyweightToPounds(bodyweight: number, unit: 'lb' | 'kg') {
     return bodyweight / 0.45359237
 }
 
+function weeklyChangeToPounds(weeklyChange: number, unit: WeightUnit) {
+    if (unit === 'lb') {
+        return weeklyChange
+    }
+
+    return weeklyChange / 0.45359237
+}
+
 export function calculateSuggestedNutritionTarget(
     input: CalculatedNutritionTargetInput
 ): CalculatedNutritionTarget {
     const bodyweightLb = bodyweightToPounds(input.bodyweight, input.unit)
-    const maintenanceCalories = bodyweightLb * 15
+    const weeklyChangeLb = weeklyChangeToPounds(input.weeklyChange, input.unit)
+    const maintenanceCalories = bodyweightLb * activityMultiplierByLevel[input.activityLevel]
+    const weeklyCalorieChange = weeklyChangeLb * 3500
+    const dailyAdjustmentMagnitude = weeklyCalorieChange / 7
 
-    const calorieAdjustmentByGoal = {
-        gain_weight: 250,
-        lose_weight: -400,
-        maintain_weight: 0
-    } satisfies Record<NutritionGoalType, number>
+    const calorieAdjustment =
+        input.goalType === 'gain_weight'
+            ? dailyAdjustmentMagnitude
+            : input.goalType === 'lose_weight'
+                ? -dailyAdjustmentMagnitude
+                : 0
+
+    const calories = maintenanceCalories + calorieAdjustment
+    const proteinG = bodyweightLb * proteinMultiplierByGoal[input.goalType]
 
     return {
-        calories: roundToNearestFive(maintenanceCalories + calorieAdjustmentByGoal[input.goalType]),
-        proteinG: roundToNearestFive(bodyweightLb * 0.8)
+        calories: roundToNearestFive(calories),
+        proteinG: roundToNearestFive(proteinG),
+        maintenanceCalories: roundToNearestFive(maintenanceCalories),
+        calorieAdjustment: roundToNearestFive(calorieAdjustment)
     }
 }
 

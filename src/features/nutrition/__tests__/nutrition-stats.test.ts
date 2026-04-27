@@ -56,12 +56,14 @@ describe('nutrition stats', () => {
         const target = calculateSuggestedNutritionTarget({
             bodyweight: 180,
             unit: 'lb',
-            goalType: 'maintain_weight'
+            goalType: 'maintain_weight',
+            activityLevel: 'moderate',
+            weeklyChange: 0
         })
 
-        expect(target).toEqual({
+        expect(target).toMatchObject({
             calories: 2700,
-            proteinG: 145
+            proteinG: 155
         })
     })
 
@@ -69,7 +71,9 @@ describe('nutrition stats', () => {
         const target = calculateSuggestedNutritionTarget({
             bodyweight: 180,
             unit: 'lb',
-            goalType: 'gain_weight'
+            goalType: 'gain_weight',
+            activityLevel: 'moderate',
+            weeklyChange: 0.5
         })
 
         expect(target.calories).toBe(2950)
