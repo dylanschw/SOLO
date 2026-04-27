@@ -1,5 +1,6 @@
 import { Dumbbell, Plus, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { WorkoutTextImportWizard } from './components/WorkoutTextImportWizard'
 import { WorkoutCsvImport } from './components/WorkoutCsvImport'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
@@ -336,6 +337,16 @@ export function WorkoutsPage() {
       </article>
 
       <WorkoutCsvImport
+        onImported={() => {
+          programsQuery.refetch()
+          activeProgramQuery.refetch()
+          exercisesQuery.refetch()
+          daysQuery.refetch()
+          plannedExercisesQuery.refetch()
+        }}
+      />
+
+      <WorkoutTextImportWizard
         onImported={() => {
           programsQuery.refetch()
           activeProgramQuery.refetch()
