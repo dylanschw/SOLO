@@ -1,9 +1,10 @@
-import { Dumbbell, Plus, Star } from 'lucide-react'
+import { Dumbbell, Play, Plus, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { WorkoutTextImportWizard } from './components/WorkoutTextImportWizard'
-import { WorkoutCsvImport } from './components/WorkoutCsvImport'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
+import { WorkoutCsvImport } from './components/WorkoutCsvImport'
+import { WorkoutSessionLogger } from './components/WorkoutSessionLogger'
+import { WorkoutTextImportWizard } from './components/WorkoutTextImportWizard'
 import {
   useActiveWorkoutProgram,
   useAddPlannedExercise,
@@ -16,7 +17,13 @@ import {
   useWorkoutDays,
   useWorkoutPrograms
 } from './hooks/useWorkouts'
+import {
+  useStartWorkoutSession,
+  useWorkoutSessions
+} from './hooks/useWorkoutSessions'
 import { getExerciseName, getPlannedExercisesForDay, sortWorkoutDays } from './lib/workout-view'
+import type { WorkoutDay } from './lib/workouts'
+import type { WorkoutSession } from './lib/workout-sessions'
 
 function optionalNumberFromInput(value: string) {
   if (!value.trim()) {
@@ -51,6 +58,8 @@ export function WorkoutsPage() {
   const exercisesQuery = useExercises()
   const createExercise = useCreateExercise()
   const addPlannedExercise = useAddPlannedExercise()
+  const startSession = useStartWorkoutSession()
+  const sessionsQuery = useWorkoutSessions()
 
   const programs = programsQuery.data ?? []
   const activeProgram = activeProgramQuery.data ?? programs.find((program) => program.is_active) ?? null
@@ -65,6 +74,10 @@ export function WorkoutsPage() {
   const plannedExercisesQuery = usePlannedExercises(dayIds)
   const plannedExercises = plannedExercisesQuery.data ?? []
   const exercises = exercisesQuery.data ?? []
+  const recentSessions = sessionsQuery.data ?? []
+
+  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null)
+  const [activeSessionDay, setActiveSessionDay] = useState<WorkoutDay | null>(null)
 
   const [programName, setProgramName] = useState('')
   const [programDescription, setProgramDescription] = useState('')
@@ -95,6 +108,43 @@ export function WorkoutsPage() {
   const [deloadRule, setDeloadRule] = useState('Drop weight to 60 to 70 percent, use RPE 6 to 7, keep rest times, reduce to 2 sets')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  function refetchWorkoutData() {
+    programsQuery.refetch()
+    activeProgramQuery.refetch()
+    exercisesQuery.refetch()
+    daysQuery.refetch()
+    plannedExercisesQuery.refetch()
+    sessionsQuery.refetch()
+  }
+
+  async function handleStartWorkout(day: WorkoutDay) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!currentProgramId) {
+      setErrorMessage('Choose a program first.')
+      return
+    }
+
+    if (day.is_rest_day) {
+      setErrorMessage('Choose a training day, not a rest day.')
+      return
+    }
+
+    try {
+      const session = await startSession.mutateAsync({
+        programId: currentProgramId,
+        workoutDayId: day.id
+      })
+
+      setActiveSession(session)
+      setActiveSessionDay(day)
+      setStatusMessage('Workout started.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not start workout.')
+    }
+  }
 
   async function handleCreateProgram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -266,6 +316,18 @@ export function WorkoutsPage() {
         </p>
       ) : null}
 
+      {activeSession ? (
+        <WorkoutSessionLogger
+          session={activeSession}
+          workoutDay={activeSessionDay}
+          onCompleted={() => {
+            setActiveSession(null)
+            setActiveSessionDay(null)
+            refetchWorkoutData()
+          }}
+        />
+      ) : null}
+
       <article className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
         <div className="flex items-center gap-3">
           <Dumbbell className="size-5 text-emerald-600" />
@@ -286,7 +348,7 @@ export function WorkoutsPage() {
           </div>
         ) : (
           <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Create your first program below. Your 8 day hypertrophy rotation is supported by this structure.
+            Create your first program below.
           </p>
         )}
 
@@ -297,8 +359,8 @@ export function WorkoutsPage() {
               type="button"
               onClick={() => setSelectedProgramId(program.id)}
               className={`rounded-xl border p-4 text-left transition ${currentProgramId === program.id
-                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-                : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+                  : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900'
                 }`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -336,25 +398,38 @@ export function WorkoutsPage() {
         ) : null}
       </article>
 
-      <WorkoutCsvImport
-        onImported={() => {
-          programsQuery.refetch()
-          activeProgramQuery.refetch()
-          exercisesQuery.refetch()
-          daysQuery.refetch()
-          plannedExercisesQuery.refetch()
-        }}
-      />
+      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="text-xl font-bold">Start workout</h2>
 
-      <WorkoutTextImportWizard
-        onImported={() => {
-          programsQuery.refetch()
-          activeProgramQuery.refetch()
-          exercisesQuery.refetch()
-          daysQuery.refetch()
-          plannedExercisesQuery.refetch()
-        }}
-      />
+        {days.filter((day) => !day.is_rest_day).length === 0 ? (
+          <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+            Create workout days and add exercises before starting a workout.
+          </p>
+        ) : null}
+
+        <div className="mt-4 grid gap-3">
+          {days
+            .filter((day) => !day.is_rest_day)
+            .map((day) => (
+              <button
+                key={day.id}
+                type="button"
+                onClick={() => handleStartWorkout(day)}
+                disabled={startSession.isPending}
+                className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+              >
+                <span className="font-semibold">
+                  Day {day.day_number}: {day.name}
+                </span>
+                <Play className="size-4" />
+              </button>
+            ))}
+        </div>
+      </article>
+
+      <WorkoutCsvImport onImported={refetchWorkoutData} />
+
+      <WorkoutTextImportWizard onImported={refetchWorkoutData} />
 
       <form
         onSubmit={handleCreateProgram}
@@ -389,7 +464,7 @@ export function WorkoutsPage() {
             <textarea
               value={programDescription}
               onChange={(event) => setProgramDescription(event.target.value)}
-              placeholder="Describe your workout program"
+              placeholder="Program description"
               rows={3}
               className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
             />
@@ -511,7 +586,7 @@ export function WorkoutsPage() {
             <textarea
               value={exerciseNotes}
               onChange={(event) => setExerciseNotes(event.target.value)}
-              placeholder="Exercise Notes"
+              placeholder="Exercise notes"
               rows={3}
               className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
             />
@@ -762,6 +837,30 @@ export function WorkoutsPage() {
               </div>
             )
           })}
+        </div>
+      </article>
+
+      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="text-xl font-bold">Workout history</h2>
+
+        {recentSessions.length === 0 ? (
+          <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+            Completed and in progress workouts will appear here.
+          </p>
+        ) : null}
+
+        <div className="mt-4 grid gap-3">
+          {recentSessions.map((session) => (
+            <div key={session.id} className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
+              <p className="font-semibold">{session.session_date}</p>
+              <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                Status: {session.status.replaceAll('_', ' ')}
+              </p>
+              {session.notes ? (
+                <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">{session.notes}</p>
+              ) : null}
+            </div>
+          ))}
         </div>
       </article>
     </section>
