@@ -21,9 +21,6 @@ export function AppShell() {
               </span>
               <span className="text-lg font-semibold tracking-normal">SOLO</span>
             </NavLink>
-            <span className="rounded-full border border-stone-200 px-3 py-1 text-xs font-medium text-stone-600 dark:border-neutral-800 dark:text-stone-300">
-              Foundation
-            </span>
           </div>
         </header>
 
