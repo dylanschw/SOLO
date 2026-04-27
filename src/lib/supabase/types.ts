@@ -42,6 +42,49 @@ export type Database = {
         }
         Relationships: []
       }
+
+      bodyweight_entries: {
+        Row: {
+          id: string
+          user_id: string
+          entry_date: string
+          weight_kg: number
+          notes: string | null
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entry_date: string
+          weight_kg: number
+          notes?: string | null
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entry_date?: string
+          weight_kg?: number
+          notes?: string | null
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
