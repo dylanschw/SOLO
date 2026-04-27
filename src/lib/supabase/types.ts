@@ -8,6 +8,8 @@ export type SyncStatus = 'synced' | 'pending' | 'conflict'
 
 export type NutritionGoalType = 'gain_weight' | 'lose_weight' | 'maintain_weight'
 
+export type ExerciseSetType = 'straight' | 'top_set_backoff' | 'warmup' | 'custom'
+
 export type Database = {
   public: {
     Tables: {
@@ -191,6 +193,223 @@ export type Database = {
           fat_g?: number | null
           effective_from?: string
           is_active?: boolean
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      workout_programs: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          rotation_length_days: number
+          is_active: boolean
+          is_archived: boolean
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          rotation_length_days?: number
+          is_active?: boolean
+          is_archived?: boolean
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          description?: string | null
+          rotation_length_days?: number
+          is_active?: boolean
+          is_archived?: boolean
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      workout_days: {
+        Row: {
+          id: string
+          user_id: string
+          program_id: string
+          day_number: number
+          name: string
+          notes: string | null
+          is_rest_day: boolean
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          program_id: string
+          day_number: number
+          name: string
+          notes?: string | null
+          is_rest_day?: boolean
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          program_id?: string
+          day_number?: number
+          name?: string
+          notes?: string | null
+          is_rest_day?: boolean
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      exercises: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          muscle_group: string | null
+          equipment: string | null
+          notes: string | null
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          muscle_group?: string | null
+          equipment?: string | null
+          notes?: string | null
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          muscle_group?: string | null
+          equipment?: string | null
+          notes?: string | null
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      planned_exercises: {
+        Row: {
+          id: string
+          user_id: string
+          workout_day_id: string
+          exercise_id: string
+          sort_order: number
+          set_type: ExerciseSetType
+          planned_sets: number
+          min_reps: number | null
+          max_reps: number | null
+          rest_seconds: number | null
+          target_rpe: number | null
+          backoff_percent: number | null
+          notes: string | null
+          progression_rule: string | null
+          deload_rule: string | null
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          workout_day_id: string
+          exercise_id: string
+          sort_order?: number
+          set_type?: ExerciseSetType
+          planned_sets?: number
+          min_reps?: number | null
+          max_reps?: number | null
+          rest_seconds?: number | null
+          target_rpe?: number | null
+          backoff_percent?: number | null
+          notes?: string | null
+          progression_rule?: string | null
+          deload_rule?: string | null
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          workout_day_id?: string
+          exercise_id?: string
+          sort_order?: number
+          set_type?: ExerciseSetType
+          planned_sets?: number
+          min_reps?: number | null
+          max_reps?: number | null
+          rest_seconds?: number | null
+          target_rpe?: number | null
+          backoff_percent?: number | null
+          notes?: string | null
+          progression_rule?: string | null
+          deload_rule?: string | null
           client_id?: string
           version?: number
           deleted_at?: string | null

@@ -3,6 +3,7 @@ import { useAuth } from '../auth/hooks/useAuth'
 import { useNutritionLogs, useActiveNutritionTarget } from '../nutrition/hooks/useNutrition'
 import { getTodayNutritionLog, summarizeNutrition } from '../nutrition/lib/nutrition-stats'
 import { useProfile } from '../profile/hooks/useProfile'
+import { useActiveWorkoutProgram } from '../workouts/hooks/useWorkouts'
 
 function getDisplayName(email: string | undefined, fullName: string | null | undefined) {
   if (fullName) {
@@ -21,11 +22,13 @@ export function DashboardPage() {
   const profileQuery = useProfile()
   const logsQuery = useNutritionLogs()
   const targetQuery = useActiveNutritionTarget()
+  const activeProgramQuery = useActiveWorkoutProgram()
 
   const profile = profileQuery.data
   const displayName = getDisplayName(user?.email, profile?.full_name)
   const todayLog = getTodayNutritionLog(logsQuery.data ?? [])
   const nutritionSummary = summarizeNutrition(todayLog, targetQuery.data ?? null)
+  const activeProgram = activeProgramQuery.data
 
   return (
     <section>
@@ -48,9 +51,13 @@ export function DashboardPage() {
             <Dumbbell className="size-5 text-stone-500 dark:text-stone-400" />
             <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Training</p>
           </div>
-          <h2 className="mt-3 text-xl font-bold">No active workout yet</h2>
+          <h2 className="mt-3 text-xl font-bold">
+            {activeProgram ? activeProgram.name : 'No active program yet'}
+          </h2>
           <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Workout programs, planned exercises, and logged sessions now have database tables.
+            {activeProgram
+              ? `${activeProgram.rotation_length_days} day rotation is active.`
+              : 'Create a workout program and set it active from the Train tab.'}
           </p>
         </article>
 
@@ -95,7 +102,7 @@ export function DashboardPage() {
           </div>
           <h2 className="mt-3 text-xl font-bold">No weekly data yet</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Later this card will compare training, nutrition, and bodyweight consistency.
+            Later this card will compare training, nutrition, bodyweight, and workout completion.
           </p>
         </article>
       </div>
