@@ -1,5 +1,7 @@
 import { Activity, Apple, Dumbbell, Scale } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
+import { useNutritionLogs, useActiveNutritionTarget } from '../nutrition/hooks/useNutrition'
+import { getTodayNutritionLog, summarizeNutrition } from '../nutrition/lib/nutrition-stats'
 import { useProfile } from '../profile/hooks/useProfile'
 
 function getDisplayName(email: string | undefined, fullName: string | null | undefined) {
@@ -17,8 +19,13 @@ function getDisplayName(email: string | undefined, fullName: string | null | und
 export function DashboardPage() {
   const { user } = useAuth()
   const profileQuery = useProfile()
+  const logsQuery = useNutritionLogs()
+  const targetQuery = useActiveNutritionTarget()
+
   const profile = profileQuery.data
   const displayName = getDisplayName(user?.email, profile?.full_name)
+  const todayLog = getTodayNutritionLog(logsQuery.data ?? [])
+  const nutritionSummary = summarizeNutrition(todayLog, targetQuery.data ?? null)
 
   return (
     <section>
@@ -31,7 +38,7 @@ export function DashboardPage() {
           Preferred unit: {profile?.preferred_weight_unit ?? 'loading...'}
         </p>
         <p className="mt-2 text-sm leading-6 opacity-80">
-          This dashboard is reading your Supabase profile. Next we will start saving real bodyweight and nutrition data.
+          Dashboard data is now starting to come from Supabase.
         </p>
       </div>
 
@@ -52,10 +59,22 @@ export function DashboardPage() {
             <Apple className="size-5 text-stone-500 dark:text-stone-400" />
             <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Nutrition</p>
           </div>
-          <h2 className="mt-3 text-xl font-bold">No meals logged yet</h2>
+          <h2 className="mt-3 text-xl font-bold">
+            {nutritionSummary.mealCount} meals today
+          </h2>
           <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Nutrition targets and daily nutrition logs are ready in Supabase.
+            {nutritionSummary.calories} calories and {nutritionSummary.proteinG}g protein logged.
           </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+              <p className="text-xs text-stone-500 dark:text-stone-400">Calories</p>
+              <p className="mt-1 text-lg font-bold">{nutritionSummary.calorieProgress}%</p>
+            </div>
+            <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+              <p className="text-xs text-stone-500 dark:text-stone-400">Protein</p>
+              <p className="mt-1 text-lg font-bold">{nutritionSummary.proteinProgress}%</p>
+            </div>
+          </div>
         </article>
 
         <article className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
@@ -63,9 +82,9 @@ export function DashboardPage() {
             <Scale className="size-5 text-stone-500 dark:text-stone-400" />
             <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Bodyweight</p>
           </div>
-          <h2 className="mt-3 text-xl font-bold">No weigh ins yet</h2>
+          <h2 className="mt-3 text-xl font-bold">Bodyweight tracking is active</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Bodyweight will be stored in kilograms internally so charts and unit conversion stay consistent.
+            Bodyweight is stored in kilograms internally so charts and unit conversion stay consistent.
           </p>
         </article>
 
