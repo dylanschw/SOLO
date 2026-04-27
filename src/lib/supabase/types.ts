@@ -10,6 +10,10 @@ export type NutritionGoalType = 'gain_weight' | 'lose_weight' | 'maintain_weight
 
 export type ExerciseSetType = 'straight' | 'top_set_backoff' | 'warmup' | 'custom'
 
+export type WorkoutSessionStatus = 'planned' | 'in_progress' | 'completed' | 'skipped'
+
+export type LoggedSetType = 'warmup' | 'working' | 'top' | 'backoff' | 'drop'
+
 export type Database = {
   public: {
     Tables: {
@@ -410,6 +414,125 @@ export type Database = {
           notes?: string | null
           progression_rule?: string | null
           deload_rule?: string | null
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      workout_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          program_id: string | null
+          workout_day_id: string | null
+          session_date: string
+          started_at: string | null
+          completed_at: string | null
+          status: WorkoutSessionStatus
+          notes: string | null
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          program_id?: string | null
+          workout_day_id?: string | null
+          session_date?: string
+          started_at?: string | null
+          completed_at?: string | null
+          status?: WorkoutSessionStatus
+          notes?: string | null
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          program_id?: string | null
+          workout_day_id?: string | null
+          session_date?: string
+          started_at?: string | null
+          completed_at?: string | null
+          status?: WorkoutSessionStatus
+          notes?: string | null
+          client_id?: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      workout_sets: {
+        Row: {
+          id: string
+          user_id: string
+          workout_session_id: string
+          planned_exercise_id: string | null
+          exercise_id: string
+          set_number: number
+          set_type: LoggedSetType
+          weight_kg: number | null
+          reps: number | null
+          rpe: number | null
+          completed: boolean
+          notes: string | null
+          client_id: string
+          version: number
+          deleted_at: string | null
+          sync_status: SyncStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          workout_session_id: string
+          planned_exercise_id?: string | null
+          exercise_id: string
+          set_number: number
+          set_type?: LoggedSetType
+          weight_kg?: number | null
+          reps?: number | null
+          rpe?: number | null
+          completed?: boolean
+          notes?: string | null
+          client_id: string
+          version?: number
+          deleted_at?: string | null
+          sync_status?: SyncStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          workout_session_id?: string
+          planned_exercise_id?: string | null
+          exercise_id?: string
+          set_number?: number
+          set_type?: LoggedSetType
+          weight_kg?: number | null
+          reps?: number | null
+          rpe?: number | null
+          completed?: boolean
+          notes?: string | null
           client_id?: string
           version?: number
           deleted_at?: string | null
