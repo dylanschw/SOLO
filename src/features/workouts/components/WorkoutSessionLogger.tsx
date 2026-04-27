@@ -1,4 +1,5 @@
 import { CheckCircle, Clock, Dumbbell, Plus, Timer } from 'lucide-react'
+import { buildRecommendationForExercise } from '../lib/progression'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LoggedSetType, WeightUnit } from '../../../lib/supabase/types'
@@ -74,6 +75,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const activeOfflineSets = activePlannedExercise
         ? getOfflineWorkoutSetsForPlannedExercise(session.id, activePlannedExercise.id)
         : []
+
+    const activeRecommendation = activePlannedExercise
+        ? buildRecommendationForExercise(activePlannedExercise, activeLoggedSets, preferredUnit)
+        : null
 
     const completedExerciseCount = useMemo(
         () =>
@@ -246,6 +251,12 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         {activePlannedExercise.rest_seconds ? `, ${activePlannedExercise.rest_seconds}s rest` : ''}
                     </p>
 
+                    {activePlannedExercise.deload_rule ? (
+                        <p className="mt-2 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                            Deload rule: {activePlannedExercise.deload_rule}
+                        </p>
+                    ) : null}
+
                     <div className="mt-3 rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
                         <div className="flex items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-300">
                             <Timer className="size-4" />
@@ -376,6 +387,22 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                     This workout day has no exercises yet.
                 </p>
             )}
+
+            {activeRecommendation && activeRecommendation.kind !== 'no_data' ? (
+                <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:ring-emerald-900">
+                    <p className="font-bold">{activeRecommendation.title}</p>
+                    <p className="mt-1 leading-6">{activeRecommendation.explanation}</p>
+                    {activeRecommendation.nextWeight !== null ? (
+                        <p className="mt-2 font-semibold">
+                            Suggested next target: {activeRecommendation.nextWeight} {preferredUnit}
+                            {activeRecommendation.nextReps ? ` for ${activeRecommendation.nextReps} reps` : ''}
+                        </p>
+                    ) : null}
+                    <p className="mt-2 text-xs opacity-80">
+                        This is a recommendation only. The app will not change your program without approval.
+                    </p>
+                </div>
+            ) : null}
 
             <label className="mt-4 grid gap-2">
                 <span className="text-sm font-semibold">Workout notes</span>
