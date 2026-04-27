@@ -2,11 +2,11 @@ import { Activity, Apple, Dumbbell, Home, Scale, Settings } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navItems = [
-  { to: '/dashboard', label: 'Home', icon: Home },
-  { to: '/workouts', label: 'Train', icon: Dumbbell },
-  { to: '/nutrition', label: 'Food', icon: Apple },
-  { to: '/bodyweight', label: 'Weight', icon: Scale },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/app/dashboard', label: 'Home', icon: Home },
+  { to: '/app/workouts', label: 'Train', icon: Dumbbell },
+  { to: '/app/nutrition', label: 'Food', icon: Apple },
+  { to: '/app/bodyweight', label: 'Weight', icon: Scale },
+  { to: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
 export function AppShell() {
@@ -15,7 +15,7 @@ export function AppShell() {
       <div className="mx-auto flex min-h-svh w-full max-w-md flex-col border-x border-stone-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
         <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 px-5 py-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
           <div className="flex items-center justify-between">
-            <NavLink to="/" className="flex items-center gap-2" aria-label="SOLO landing">
+            <NavLink to="/app/dashboard" className="flex items-center gap-2" aria-label="SOLO dashboard">
               <span className="grid size-9 place-items-center rounded-lg bg-emerald-600 text-white">
                 <Activity size={20} strokeWidth={2.4} />
               </span>
@@ -60,4 +60,3 @@ export function AppShell() {
     </div>
   )
 }
-

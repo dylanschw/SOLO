@@ -1,52 +1,52 @@
-import { ArrowRight, ShieldCheck, WifiOff } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Dumbbell, LineChart, Lock, Utensils } from 'lucide-react'
+import { ThemeToggle } from '../../components/ui/ThemeToggle'
+import { AuthForm } from './components/AuthForm'
 
 export function LandingPage() {
   return (
-    <section className="flex min-h-[calc(100svh-9rem)] flex-col justify-between gap-8">
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-            Gym, nutrition, bodyweight
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md flex-col">
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+              SOLO
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">Train. Eat. Adjust.</h1>
+          </div>
+          <ThemeToggle />
+        </header>
+
+        <section className="mt-8 rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+          <p className="text-lg font-semibold">Your private gym operating system.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Track workouts, nutrition, bodyweight, goals, and progress from one mobile first app built for real gym use.
           </p>
-          <h1 className="text-4xl font-bold leading-tight tracking-normal text-stone-950 dark:text-white">
-            One focused place to train, eat, and track progress.
-          </h1>
-          <p className="text-base leading-7 text-stone-600 dark:text-stone-300">
-            SOLO is being built as a real offline-ready training PWA with Supabase-backed user data.
-          </p>
+
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800">
+              <Dumbbell className="size-5" />
+              <p className="mt-2 text-xs font-semibold">Training</p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800">
+              <Utensils className="size-5" />
+              <p className="mt-2 text-xs font-semibold">Nutrition</p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800">
+              <LineChart className="size-5" />
+              <p className="mt-2 text-xs font-semibold">Progress</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-5 grid gap-4">
+          <AuthForm />
         </div>
 
-        <div className="grid gap-3">
-          <div className="flex gap-3 rounded-lg border border-stone-200 p-4 dark:border-neutral-800">
-            <ShieldCheck className="mt-0.5 shrink-0 text-emerald-600" size={22} />
-            <div>
-              <h2 className="text-base font-semibold">User-owned data first</h2>
-              <p className="mt-1 text-sm leading-6 text-stone-600 dark:text-stone-400">
-                Auth, row level security, and private workout history come next.
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3 rounded-lg border border-stone-200 p-4 dark:border-neutral-800">
-            <WifiOff className="mt-0.5 shrink-0 text-emerald-600" size={22} />
-            <div>
-              <h2 className="text-base font-semibold">Designed for bad gym Wi-Fi</h2>
-              <p className="mt-1 text-sm leading-6 text-stone-600 dark:text-stone-400">
-                IndexedDB and sync queues are reserved for workout logging milestones.
-              </p>
-            </div>
-          </div>
-        </div>
+        <footer className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <Lock className="size-3.5" />
+          Your data is private and protected by Supabase row level security.
+        </footer>
       </div>
-
-      <Link
-        to="/dashboard"
-        className="inline-flex min-h-14 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-      >
-        Preview dashboard
-        <ArrowRight size={20} aria-hidden="true" />
-      </Link>
-    </section>
+    </main>
   )
 }
-
