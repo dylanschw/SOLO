@@ -2,7 +2,7 @@ import { CheckCircle, Clock, Dumbbell, Plus, Timer } from 'lucide-react'
 import { buildRecommendationForExercise } from '../lib/progression'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { LoggedSetType, WeightUnit } from '../../../lib/supabase/types'
+import type { WeightUnit } from '../../../lib/supabase/types'
 import { useProfile } from '../../profile/hooks/useProfile'
 import { useExercises, usePlannedExercises } from '../hooks/useWorkouts'
 import {
@@ -61,8 +61,6 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const [weight, setWeight] = useState('')
     const [weightUnit, setWeightUnit] = useState<WeightUnit>(preferredUnit)
     const [reps, setReps] = useState('')
-    const [rpe, setRpe] = useState('')
-    const [setType, setSetType] = useState<LoggedSetType>('working')
     const [notes, setNotes] = useState('')
     const [sessionNotes, setSessionNotes] = useState('')
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -99,7 +97,6 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
 
         const parsedWeight = optionalNumberFromInput(weight)
         const parsedReps = optionalNumberFromInput(reps)
-        const parsedRpe = optionalNumberFromInput(rpe)
 
         if (parsedReps === null || parsedReps < 0) {
             setErrorMessage('Enter reps for this set.')
@@ -114,11 +111,11 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
             plannedExerciseId: activePlannedExercise.id,
             exerciseId: activePlannedExercise.exercise_id,
             setNumber: nextSetNumber,
-            setType,
+            setType: 'working' as const,
             weight: parsedWeight,
             weightUnit,
             reps: parsedReps,
-            rpe: parsedRpe,
+            rpe: null,
             notes
         }
 
@@ -141,11 +138,11 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                 plannedExerciseId: activePlannedExercise.id,
                 exerciseId: activePlannedExercise.exercise_id,
                 setNumber: nextSetNumber,
-                setType,
+                setType: 'working',
                 weight: parsedWeight,
                 weightUnit,
                 reps: parsedReps,
-                rpe: parsedRpe,
+                rpe: null,
                 notes: notes.trim() || null,
                 createdAt: new Date().toISOString(),
                 syncError: error instanceof Error ? error.message : null
@@ -156,9 +153,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
 
         setWeight('')
         setReps('')
-        setRpe('')
         setNotes('')
-        setSetType('working')
     }
 
     async function handleCompleteWorkout() {
@@ -294,46 +289,17 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                             </label>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                            <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Reps</span>
-                                <input
-                                    type="number"
-                                    inputMode="numeric"
-                                    value={reps}
-                                    onChange={(event) => setReps(event.target.value)}
-                                    placeholder="Reps"
-                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                            </label>
-
-                            <label className="grid gap-2">
-                                <span className="text-sm font-semibold">RPE</span>
-                                <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    value={rpe}
-                                    onChange={(event) => setRpe(event.target.value)}
-                                    placeholder="RPE"
-                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                            </label>
-
-                            <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Type</span>
-                                <select
-                                    value={setType}
-                                    onChange={(event) => setSetType(event.target.value as LoggedSetType)}
-                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                >
-                                    <option value="working">Work</option>
-                                    <option value="top">Top</option>
-                                    <option value="backoff">Backoff</option>
-                                    <option value="warmup">Warmup</option>
-                                    <option value="drop">Drop</option>
-                                </select>
-                            </label>
-                        </div>
+                        <label className="grid gap-2">
+                            <span className="text-sm font-semibold">Reps</span>
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                value={reps}
+                                onChange={(event) => setReps(event.target.value)}
+                                placeholder="Reps"
+                                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                        </label>
 
                         <label className="grid gap-2">
                             <span className="text-sm font-semibold">Set notes</span>
