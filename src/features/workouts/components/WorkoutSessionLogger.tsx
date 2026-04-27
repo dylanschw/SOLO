@@ -17,6 +17,13 @@ import {
 } from '../lib/session-view'
 import type { WorkoutDay } from '../lib/workouts'
 import type { WorkoutSession } from '../lib/workout-sessions'
+import { useAuth } from '../../auth/hooks/useAuth'
+import {
+    addOfflineWorkoutSet,
+    createLocalId,
+    getOfflineWorkoutSetsForPlannedExercise
+} from '../lib/offline-workout'
+import { useOfflineWorkoutSync } from '../hooks/useOfflineWorkoutSync'
 
 type WorkoutSessionLoggerProps = {
     session: WorkoutSession
@@ -36,11 +43,13 @@ function optionalNumberFromInput(value: string) {
 
 export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: WorkoutSessionLoggerProps) {
     const profileQuery = useProfile()
+    const { user } = useAuth()
     const exercisesQuery = useExercises()
     const plannedExercisesQuery = usePlannedExercises(workoutDay ? [workoutDay.id] : [])
     const setsQuery = useWorkoutSets(session.id)
     const createSet = useCreateWorkoutSet()
     const completeSession = useCompleteWorkoutSession()
+    const offlineSync = useOfflineWorkoutSync(session.id)
 
     const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb'
     const exercises = exercisesQuery.data ?? []
@@ -60,6 +69,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const activePlannedExercise = plannedExercises[activeExerciseIndex] ?? null
     const activeLoggedSets = activePlannedExercise
         ? getLoggedSetsForPlannedExercise(activePlannedExercise.id, loggedSets)
+        : []
+
+    const activeOfflineSets = activePlannedExercise
+        ? getOfflineWorkoutSetsForPlannedExercise(session.id, activePlannedExercise.id)
         : []
 
     const completedExerciseCount = useMemo(
@@ -88,28 +101,59 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
             return
         }
 
+        const nextSetNumber =
+            getNextSetNumber(activePlannedExercise.id, loggedSets) + activeOfflineSets.length
+
+        const setPayload = {
+            workoutSessionId: session.id,
+            plannedExerciseId: activePlannedExercise.id,
+            exerciseId: activePlannedExercise.exercise_id,
+            setNumber: nextSetNumber,
+            setType,
+            weight: parsedWeight,
+            weightUnit,
+            reps: parsedReps,
+            rpe: parsedRpe,
+            notes
+        }
+
         try {
-            await createSet.mutateAsync({
+            if (!offlineSync.isOnline || !user) {
+                throw new Error('Offline, saved locally')
+            }
+
+            await createSet.mutateAsync(setPayload)
+        } catch (error) {
+            if (!user) {
+                setErrorMessage('You must be signed in to log a set.')
+                return
+            }
+
+            addOfflineWorkoutSet({
+                localId: createLocalId(),
+                userId: user.id,
                 workoutSessionId: session.id,
                 plannedExerciseId: activePlannedExercise.id,
                 exerciseId: activePlannedExercise.exercise_id,
-                setNumber: getNextSetNumber(activePlannedExercise.id, loggedSets),
+                setNumber: nextSetNumber,
                 setType,
                 weight: parsedWeight,
                 weightUnit,
                 reps: parsedReps,
                 rpe: parsedRpe,
-                notes
+                notes: notes.trim() || null,
+                createdAt: new Date().toISOString(),
+                syncError: error instanceof Error ? error.message : null
             })
 
-            setWeight('')
-            setReps('')
-            setRpe('')
-            setNotes('')
-            setSetType('working')
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'Could not log set.')
+            offlineSync.refreshPendingCount()
         }
+
+        setWeight('')
+        setReps('')
+        setRpe('')
+        setNotes('')
+        setSetType('working')
     }
 
     async function handleCompleteWorkout() {
@@ -146,7 +190,25 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         {completedExerciseCount}/{plannedExercises.length}
                     </p>
                 </div>
+                <div className="mt-4 rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900">
+                    <p className="font-semibold">
+                        Connection: {offlineSync.isOnline ? 'Online' : 'Offline'}
+                    </p>
+                    <p className="mt-1 text-stone-500 dark:text-stone-400">
+                        Pending local sets: {offlineSync.pendingCount}
+                    </p>
 
+                    {offlineSync.pendingCount > 0 ? (
+                        <button
+                            type="button"
+                            onClick={offlineSync.syncPendingSets}
+                            disabled={!offlineSync.isOnline || offlineSync.isSyncing}
+                            className="mt-3 min-h-10 rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-stone-950"
+                        >
+                            {offlineSync.isSyncing ? 'Syncing...' : 'Sync pending sets'}
+                        </button>
+                    ) : null}
+                </div>
                 <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
                     <p className="text-xs text-stone-500 dark:text-stone-400">Logged sets</p>
                     <p className="mt-1 text-xl font-bold">{loggedSets.length}</p>
@@ -160,8 +222,8 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         type="button"
                         onClick={() => setActiveExerciseIndex(index)}
                         className={`shrink-0 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${index === activeExerciseIndex
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                : 'border-stone-200 bg-white text-stone-600 dark:border-neutral-800 dark:bg-neutral-950 dark:text-stone-300'
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            : 'border-stone-200 bg-white text-stone-600 dark:border-neutral-800 dark:bg-neutral-950 dark:text-stone-300'
                             }`}
                     >
                         {index + 1}. {getExerciseNameForPlannedExercise(plannedExercise, exercises)}
@@ -291,6 +353,18 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                 <span className="font-semibold">Set {set.set_number}</span>
                                 <span>
                                     {formatLoggedWeight(set.weight_kg, preferredUnit)} x {set.reps ?? '--'} reps
+                                    {set.rpe ? ` @ RPE ${set.rpe}` : ''}
+                                </span>
+                            </div>
+                        ))}
+                        {activeOfflineSets.map((set) => (
+                            <div
+                                key={set.localId}
+                                className="flex items-center justify-between rounded-xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900"
+                            >
+                                <span className="font-semibold">Set {set.setNumber} pending</span>
+                                <span>
+                                    {set.weight ?? '--'} {set.weightUnit} x {set.reps ?? '--'} reps
                                     {set.rpe ? ` @ RPE ${set.rpe}` : ''}
                                 </span>
                             </div>

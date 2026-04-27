@@ -23,6 +23,7 @@ export type CreateWorkoutSetInput = {
     reps: number | null
     rpe: number | null
     notes?: string | null
+    clientId?: string
 }
 
 function createClientId() {
@@ -124,7 +125,7 @@ export async function createWorkoutSet(input: CreateWorkoutSetInput) {
             rpe: cleanOptionalNumber(input.rpe),
             completed: true,
             notes: cleanText(input.notes),
-            client_id: createClientId(),
+            client_id: input.clientId ?? createClientId(),
             sync_status: 'synced'
         })
         .select()
