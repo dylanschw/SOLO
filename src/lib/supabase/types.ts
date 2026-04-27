@@ -4,6 +4,8 @@ export type WeightUnit = 'lb' | 'kg'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+export type SyncStatus = 'synced' | 'pending' | 'conflict'
+
 export type Database = {
   public: {
     Tables: {
@@ -38,6 +40,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
     }
     Views: Record<string, never>
