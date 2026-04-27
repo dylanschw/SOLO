@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-
 import { AppShell } from '../components/layout/AppShell'
+import { ProtectedRoute } from '../features/auth/components/ProtectedRoute'
+import { PublicOnlyRoute } from '../features/auth/components/PublicOnlyRoute'
 import { LandingPage } from '../features/auth/LandingPage'
 import { BodyweightPage } from '../features/bodyweight/BodyweightPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
@@ -10,38 +11,51 @@ import { WorkoutsPage } from '../features/workouts/WorkoutsPage'
 
 export const router = createBrowserRouter([
   {
-    path: '/',
-    element: <AppShell />,
+    element: <PublicOnlyRoute />,
     children: [
       {
-        index: true,
-        element: <LandingPage />,
-      },
-      {
-        path: 'dashboard',
-        element: <DashboardPage />,
-      },
-      {
-        path: 'workouts',
-        element: <WorkoutsPage />,
-      },
-      {
-        path: 'nutrition',
-        element: <NutritionPage />,
-      },
-      {
-        path: 'bodyweight',
-        element: <BodyweightPage />,
-      },
-      {
-        path: 'settings',
-        element: <SettingsPage />,
-      },
-      {
-        path: '*',
-        element: <Navigate to="/" replace />,
-      },
-    ],
+        path: '/',
+        element: <LandingPage />
+      }
+    ]
   },
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: '/app',
+        element: <AppShell />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/app/dashboard" replace />
+          },
+          {
+            path: 'dashboard',
+            element: <DashboardPage />
+          },
+          {
+            path: 'workouts',
+            element: <WorkoutsPage />
+          },
+          {
+            path: 'nutrition',
+            element: <NutritionPage />
+          },
+          {
+            path: 'bodyweight',
+            element: <BodyweightPage />
+          },
+          {
+            path: 'settings',
+            element: <SettingsPage />
+          }
+        ]
+      }
+    ]
+  },
+  {
+    path: '*',
+    element: <Navigate to="/" replace />
+  }
 ])
-

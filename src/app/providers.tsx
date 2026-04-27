@@ -1,32 +1,28 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { PropsWithChildren } from 'react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import type { ReactNode } from 'react'
+import { AuthProvider } from '../features/auth/AuthProvider'
 
-export function AppProviders({ children }: PropsWithChildren) {
+type AppProvidersProps = {
+  children: ReactNode
+}
+
+export function AppProviders({ children }: AppProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            refetchOnWindowFocus: false,
-            retry: 1,
-            staleTime: 30_000,
-          },
-        },
-      }),
+            retry: 2,
+            staleTime: 1000 * 30
+          }
+        }
+      })
   )
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const applySystemTheme = () => {
-      document.documentElement.classList.toggle('dark', mediaQuery.matches)
-    }
-
-    applySystemTheme()
-    mediaQuery.addEventListener('change', applySystemTheme)
-
-    return () => mediaQuery.removeEventListener('change', applySystemTheme)
-  }, [])
-
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  )
 }
