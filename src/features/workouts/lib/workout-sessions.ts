@@ -157,3 +157,36 @@ export async function completeWorkoutSession(userId: string, sessionId: string, 
 
     return data
 }
+
+export async function deleteWorkoutSession(userId: string, sessionId: string) {
+    const deletedAt = new Date().toISOString();
+
+    const { error: setsError } = await supabase
+        .from('workout_sets')
+        .update({
+            deleted_at: deletedAt,
+        })
+        .eq('user_id', userId)
+        .eq('workout_session_id', sessionId);
+
+    if (setsError) {
+        throw setsError;
+    }
+
+    const { data, error } = await supabase
+        .from('workout_sessions')
+        .update({
+            deleted_at: deletedAt,
+            status: 'skipped',
+        })
+        .eq('user_id', userId)
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+}

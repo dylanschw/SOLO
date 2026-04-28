@@ -122,24 +122,6 @@ export async function upsertNutritionLog(input: UpsertNutritionLogInput) {
     return data
 }
 
-export async function deleteNutritionLog(logId: string, userId: string) {
-    const { data, error } = await supabase
-        .from('nutrition_logs')
-        .update({
-            deleted_at: new Date().toISOString()
-        })
-        .eq('id', logId)
-        .eq('user_id', userId)
-        .select()
-        .single()
-
-    if (error) {
-        throw error
-    }
-
-    return data
-}
-
 export async function getActiveNutritionTarget(userId: string) {
     const { data, error } = await supabase
         .from('nutrition_targets')
@@ -207,4 +189,22 @@ export async function upsertNutritionTarget(input: UpsertNutritionTargetInput) {
     }
 
     return data
+}
+
+export async function deleteNutritionLog(userId: string, logId: string) {
+    const { data, error } = await supabase
+        .from('nutrition_logs')
+        .update({
+            deleted_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('id', logId)
+        .select()
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
 }

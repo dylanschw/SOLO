@@ -1,9 +1,9 @@
 import { Archive, Dumbbell, Pencil, Play, Plus, Save, Star, Trash2, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
 import { WorkoutCsvImport } from './components/WorkoutCsvImport'
-import { WorkoutSessionLogger } from './components/WorkoutSessionLogger'
+import { useNavigate } from 'react-router-dom'
 import { WorkoutTextImportWizard } from './components/WorkoutTextImportWizard'
 import {
   useActiveWorkoutProgram,
@@ -25,6 +25,7 @@ import {
 } from './hooks/useWorkouts'
 import {
   useStartWorkoutSession,
+  useDeleteWorkoutSession,
   useWorkoutSessions
 } from './hooks/useWorkoutSessions'
 import { getExerciseName, getPlannedExercisesForDay, sortWorkoutDays } from './lib/workout-view'
@@ -69,6 +70,8 @@ const workoutPageSections: Array<{
   ]
 
 export function WorkoutsPage() {
+  const deleteWorkoutSession = useDeleteWorkoutSession();
+  const navigate = useNavigate()
   const programsQuery = useWorkoutPrograms()
   const activeProgramQuery = useActiveWorkoutProgram()
   const createProgram = useCreateWorkoutProgram()
@@ -85,7 +88,6 @@ export function WorkoutsPage() {
   const deletePlannedExercise = useDeletePlannedExercise()
   const startSession = useStartWorkoutSession()
   const sessionsQuery = useWorkoutSessions()
-  const activeWorkoutRef = useRef<HTMLDivElement | null>(null)
   const programs = programsQuery.data ?? []
   const activeProgram = activeProgramQuery.data ?? programs.find((program) => program.is_active) ?? null
 
@@ -113,8 +115,6 @@ export function WorkoutsPage() {
     ? days.find((day) => day.id === currentResumeSession.workout_day_id) ?? null
     : null
 
-  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null)
-  const [activeSessionDay, setActiveSessionDay] = useState<WorkoutDay | null>(null)
   const [activeSection, setActiveSection] = useState<WorkoutPageSection>('start')
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null)
   const [editingProgramName, setEditingProgramName] = useState('')
@@ -197,18 +197,24 @@ export function WorkoutsPage() {
     setEditingProgramRotationLength('8')
   }
 
-  useEffect(() => {
-    if (!activeSession) {
-      return
+
+  async function handleDeleteWorkoutSession(sessionId: string) {
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    const confirmed = window.confirm('Delete this workout from history?');
+
+    if (!confirmed) {
+      return;
     }
 
-    window.setTimeout(() => {
-      activeWorkoutRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      })
-    }, 100)
-  }, [activeSession])
+    try {
+      await deleteWorkoutSession.mutateAsync(sessionId);
+      setStatusMessage('Workout deleted from history.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not delete workout.');
+    }
+  }
 
   async function handleUpdateProgram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -433,9 +439,8 @@ export function WorkoutsPage() {
     }
 
     setActiveSection('start')
-    setActiveSession(session)
-    setActiveSessionDay(workoutDay)
     setStatusMessage('Workout resumed.')
+    navigate(`/app/workouts/session/${session.id}`)
   }
 
   async function handleStartWorkout(day: WorkoutDay) {
@@ -459,9 +464,8 @@ export function WorkoutsPage() {
       })
 
       setActiveSection('start')
-      setActiveSession(session)
-      setActiveSessionDay(day)
       setStatusMessage('Workout started.')
+      navigate(`/app/workouts/session/${session.id}`)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not start workout.')
     }
@@ -651,19 +655,7 @@ export function WorkoutsPage() {
         </p>
       ) : null}
 
-      {activeSession ? (
-        <div ref={activeWorkoutRef}>
-          <WorkoutSessionLogger
-            session={activeSession}
-            workoutDay={activeSessionDay}
-            onCompleted={() => {
-              setActiveSession(null)
-              setActiveSessionDay(null)
-              refetchWorkoutData()
-            }}
-          />
-        </div>
-      ) : null}
+
 
       {activeSection === 'start' ? (
         <>
@@ -1581,6 +1573,16 @@ export function WorkoutsPage() {
                   {session.notes ? (
                     <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">{session.notes}</p>
                   ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteWorkoutSession(session.id)}
+                    disabled={deleteWorkoutSession.isPending}
+                    className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="size-4" />
+                    Delete workout
+                  </button>
                 </div>
               ))}
             </div>

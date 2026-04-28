@@ -42,7 +42,7 @@ export function NutritionPage() {
   const logsQuery = useNutritionLogs()
   const targetQuery = useActiveNutritionTarget()
   const upsertLog = useUpsertNutritionLog()
-  const deleteLog = useDeleteNutritionLog()
+  const deleteNutritionLog = useDeleteNutritionLog()
   const upsertTarget = useUpsertNutritionTarget()
 
   const logs = logsQuery.data ?? []
@@ -72,6 +72,24 @@ export function NutritionPage() {
   const [targetFat, setTargetFat] = useState(target?.fat_g?.toString() ?? '')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  async function handleDeleteNutritionLog(logId: string) {
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    const confirmed = window.confirm('Delete this nutrition log?');
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteNutritionLog.mutateAsync(logId);
+      setStatusMessage('Nutrition log deleted.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not delete nutrition log.');
+    }
+  }
 
   async function handleSaveLog(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -168,10 +186,6 @@ export function NutritionPage() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not save nutrition target.')
     }
-  }
-
-  async function handleDelete(logId: string) {
-    await deleteLog.mutateAsync(logId)
   }
 
   return (
@@ -554,8 +568,8 @@ export function NutritionPage() {
 
               <button
                 type="button"
-                onClick={() => handleDelete(log.id)}
-                disabled={deleteLog.isPending}
+                onClick={() => handleDeleteNutritionLog(log.id)}
+                disabled={deleteNutritionLog.isPending}
                 className="grid size-11 shrink-0 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-400 dark:hover:bg-neutral-900"
                 aria-label="Delete nutrition log"
               >

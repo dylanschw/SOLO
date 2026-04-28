@@ -7,6 +7,7 @@ import {
     listWorkoutSets,
     startWorkoutSession,
     type CreateWorkoutSetInput,
+    deleteWorkoutSession,
     type StartWorkoutSessionInput
 } from '../lib/workout-sessions'
 
@@ -101,4 +102,22 @@ export function useCompleteWorkoutSession() {
             queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] })
         }
     })
+}
+
+export function useDeleteWorkoutSession() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (sessionId: string) => {
+            if (!user) {
+                throw new Error('Cannot delete workout session without a signed-in user');
+            }
+
+            return deleteWorkoutSession(user.id, sessionId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] });
+        },
+    });
 }

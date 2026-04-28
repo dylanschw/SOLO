@@ -87,9 +87,7 @@ export function DashboardPage() {
             <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Bodyweight</p>
           </div>
           <h2 className="mt-3 text-xl font-bold">Bodyweight tracking is active</h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Bodyweight is stored in kilograms internally so charts and unit conversion stay consistent.
-          </p>
+
         </article>
 
         <article className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
@@ -98,9 +96,7 @@ export function DashboardPage() {
             <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Consistency</p>
           </div>
           <h2 className="mt-3 text-xl font-bold">No weekly data yet</h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Later this card will compare training, nutrition, bodyweight, and workout completion.
-          </p>
+
         </article>
       </div>
     </section>

@@ -63,24 +63,6 @@ export function useUpsertNutritionLog() {
     })
 }
 
-export function useDeleteNutritionLog() {
-    const { user } = useAuth()
-    const queryClient = useQueryClient()
-
-    return useMutation({
-        mutationFn: (logId: string) => {
-            if (!user) {
-                throw new Error('Cannot delete nutrition log without a signed-in user')
-            }
-
-            return deleteNutritionLog(logId, user.id)
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['nutrition-logs', user?.id] })
-        }
-    })
-}
-
 export function useUpsertNutritionTarget() {
     const { user } = useAuth()
     const queryClient = useQueryClient()
@@ -100,4 +82,21 @@ export function useUpsertNutritionTarget() {
             queryClient.invalidateQueries({ queryKey: ['nutrition-target', user?.id] })
         }
     })
+}
+export function useDeleteNutritionLog() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (logId: string) => {
+            if (!user) {
+                throw new Error('Cannot delete nutrition log without a signed-in user');
+            }
+
+            return deleteNutritionLog(user.id, logId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['nutrition-logs', user?.id] });
+        },
+    });
 }
