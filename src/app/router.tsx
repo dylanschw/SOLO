@@ -9,6 +9,7 @@ import { NutritionPage } from '../features/nutrition/NutritionPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { WorkoutsPage } from '../features/workouts/WorkoutsPage'
 import { WorkoutSessionPage } from '../features/workouts/WorkoutSessionPage'
+import { WorkoutHistoryDetailPage } from '../features/workouts/WorkoutHistoryDetailPage';
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ export const router = createBrowserRouter([
           {
             path: 'workouts/session/:sessionId',
             element: <WorkoutSessionPage />
+          },
+          {
+            path: 'workouts/history/:sessionId',
+            element: <WorkoutHistoryDetailPage />
           },
           {
             path: 'nutrition',
