@@ -4,6 +4,9 @@ import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
 import { WorkoutCsvImport } from './components/WorkoutCsvImport'
 import { useNavigate } from 'react-router-dom'
+import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { buildExerciseHistory } from './lib/exercise-history';
+import { useProfile } from '../profile/hooks/useProfile';
 import { WorkoutTextImportWizard } from './components/WorkoutTextImportWizard'
 import {
   useActiveWorkoutProgram,
@@ -24,10 +27,11 @@ import {
   useWorkoutPrograms
 } from './hooks/useWorkouts'
 import {
-  useStartWorkoutSession,
+  useAllWorkoutSets,
   useDeleteWorkoutSession,
+  useStartWorkoutSession,
   useWorkoutSessions
-} from './hooks/useWorkoutSessions'
+} from './hooks/useWorkoutSessions';
 import { getExerciseName, getPlannedExercisesForDay, sortWorkoutDays } from './lib/workout-view'
 import type { WorkoutDay } from './lib/workouts'
 import type { WorkoutSession } from './lib/workout-sessions'
@@ -56,7 +60,7 @@ function integerFromInput(value: string, fallback: number) {
   return numberValue
 }
 
-type WorkoutPageSection = 'start' | 'build' | 'import' | 'edit' | 'history'
+type WorkoutPageSection = 'start' | 'build' | 'import' | 'edit' | 'progress' | 'history'
 
 const workoutPageSections: Array<{
   id: WorkoutPageSection
@@ -66,6 +70,7 @@ const workoutPageSections: Array<{
     { id: 'build', label: 'Build' },
     { id: 'import', label: 'Import' },
     { id: 'edit', label: 'Edit' },
+    { id: 'progress', label: 'Progress' },
     { id: 'history', label: 'History' }
   ]
 
@@ -75,6 +80,8 @@ export function WorkoutsPage() {
   const programsQuery = useWorkoutPrograms()
   const activeProgramQuery = useActiveWorkoutProgram()
   const createProgram = useCreateWorkoutProgram()
+  const profileQuery = useProfile();
+  const allWorkoutSetsQuery = useAllWorkoutSets();
   const setActiveProgram = useSetActiveWorkoutProgram()
   const createDay = useCreateWorkoutDay()
   const exercisesQuery = useExercises()
@@ -102,6 +109,19 @@ export function WorkoutsPage() {
   const plannedExercises = plannedExercisesQuery.data ?? []
   const exercises = exercisesQuery.data ?? []
   const recentSessions = sessionsQuery.data ?? []
+
+  const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb';
+  const allWorkoutSets = allWorkoutSetsQuery.data ?? [];
+
+  const exerciseHistory = useMemo(
+    () =>
+      buildExerciseHistory({
+        sets: allWorkoutSets,
+        exercises,
+        unit: preferredUnit,
+      }),
+    [allWorkoutSets, exercises, preferredUnit]
+  );
 
   const inProgressSessions = recentSessions.filter((session) => session.status === 'in_progress')
 
@@ -1550,6 +1570,104 @@ export function WorkoutsPage() {
           </article>
         ) : null
       }
+
+      {activeSection === 'progress' ? (
+        <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+          <h2 className="text-xl font-bold">Exercise progress</h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+            See recent sets, best weights, and estimated strength trends from your workout history.
+          </p>
+
+          {exerciseHistory.length === 0 ? (
+            <p className="mt-4 text-sm leading-6 text-stone-600 dark:text-stone-300">
+              Log workout sets to start building exercise history.
+            </p>
+          ) : null}
+
+          <div className="mt-4 grid gap-4">
+            {exerciseHistory.map((exercise) => (
+              <div
+                key={exercise.exerciseId}
+                className="rounded-2xl border border-stone-200 p-4 dark:border-neutral-800"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold">{exercise.exerciseName}</h3>
+                    <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                      {exercise.totalSets} logged sets
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
+                    {exercise.latestSet?.weight ?? '--'} {preferredUnit}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                      Best weight
+                    </p>
+                    <p className="mt-1 text-lg font-bold">
+                      {exercise.bestWeightSet?.weight ?? '--'} {preferredUnit}
+                    </p>
+                    <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                      {exercise.bestWeightSet?.reps ? `${exercise.bestWeightSet.reps} reps` : 'No reps logged'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                      Best estimated 1RM
+                    </p>
+                    <p className="mt-1 text-lg font-bold">
+                      {exercise.bestEstimatedOneRepMaxSet?.estimatedOneRepMax ?? '--'} {preferredUnit}
+                    </p>
+                    <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                      Estimate from weight and reps
+                    </p>
+                  </div>
+                </div>
+
+                {exercise.chartPoints.length >= 2 ? (
+                  <div className="mt-4 h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={exercise.chartPoints} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+                        <XAxis dataKey="date" tickLine={false} axisLine={false} fontSize={11} />
+                        <YAxis tickLine={false} axisLine={false} fontSize={11} width={34} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="estimatedOneRepMax"
+                          strokeWidth={3}
+                          dot={{ r: 2 }}
+                          activeDot={{ r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-2">
+                  {exercise.recentSets.map((set) => (
+                    <div
+                      key={set.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900"
+                    >
+                      <span className="font-semibold">
+                        {set.weight ?? '--'} {preferredUnit} x {set.reps ?? '--'}
+                      </span>
+                      <span className="text-xs text-stone-500 dark:text-stone-400">
+                        {new Date(set.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
 
       {
         activeSection === 'history' ? (

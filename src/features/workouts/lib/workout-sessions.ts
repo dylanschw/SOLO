@@ -190,3 +190,19 @@ export async function deleteWorkoutSession(userId: string, sessionId: string) {
 
     return data;
 }
+
+export async function listAllWorkoutSets(userId: string) {
+    const { data, error } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+}
