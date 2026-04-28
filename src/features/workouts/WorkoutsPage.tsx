@@ -1,5 +1,5 @@
 import { Archive, Dumbbell, Pencil, Play, Plus, Save, Star, Trash2, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
 import { WorkoutCsvImport } from './components/WorkoutCsvImport'
@@ -85,7 +85,7 @@ export function WorkoutsPage() {
   const deletePlannedExercise = useDeletePlannedExercise()
   const startSession = useStartWorkoutSession()
   const sessionsQuery = useWorkoutSessions()
-
+  const activeWorkoutRef = useRef<HTMLDivElement | null>(null)
   const programs = programsQuery.data ?? []
   const activeProgram = activeProgramQuery.data ?? programs.find((program) => program.is_active) ?? null
 
@@ -184,6 +184,19 @@ export function WorkoutsPage() {
     setEditingProgramDescription('')
     setEditingProgramRotationLength('8')
   }
+
+  useEffect(() => {
+    if (!activeSession) {
+      return
+    }
+
+    window.setTimeout(() => {
+      activeWorkoutRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      })
+    }, 100)
+  }, [activeSession])
 
   async function handleUpdateProgram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -416,6 +429,7 @@ export function WorkoutsPage() {
         workoutDayId: day.id
       })
 
+      setActiveSection('start')
       setActiveSession(session)
       setActiveSessionDay(day)
       setStatusMessage('Workout started.')
@@ -609,16 +623,19 @@ export function WorkoutsPage() {
       ) : null}
 
       {activeSession ? (
-        <WorkoutSessionLogger
-          session={activeSession}
-          workoutDay={activeSessionDay}
-          onCompleted={() => {
-            setActiveSession(null)
-            setActiveSessionDay(null)
-            refetchWorkoutData()
-          }}
-        />
+        <div ref={activeWorkoutRef}>
+          <WorkoutSessionLogger
+            session={activeSession}
+            workoutDay={activeSessionDay}
+            onCompleted={() => {
+              setActiveSession(null)
+              setActiveSessionDay(null)
+              refetchWorkoutData()
+            }}
+          />
+        </div>
       ) : null}
+
       {activeSection === 'start' ? (
         <>
           <article className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
