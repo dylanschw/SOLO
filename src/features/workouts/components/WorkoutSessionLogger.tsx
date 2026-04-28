@@ -1,30 +1,42 @@
-import { CheckCircle, ChevronLeft, ChevronRight, Clock, Dumbbell, Plus, Timer } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { buildRecommendationForExercise } from '../lib/progression'
-import type { FormEvent } from 'react'
-import type { WeightUnit } from '../../../lib/supabase/types'
-import { useProfile } from '../../profile/hooks/useProfile'
-import { useExercises, usePlannedExercises } from '../hooks/useWorkouts'
 import {
+    CheckCircle,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Dumbbell,
+    History,
+    Plus,
+    Sparkles,
+    Timer
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
+import type { WeightUnit } from '../../../lib/supabase/types';
+import { useAuth } from '../../auth/hooks/useAuth';
+import { useProfile } from '../../profile/hooks/useProfile';
+import { buildRecommendationForExercise } from '../lib/progression';
+import { useExercises, usePlannedExercises } from '../hooks/useWorkouts';
+import {
+    useAllWorkoutSets,
     useCompleteWorkoutSession,
     useCreateWorkoutSet,
     useWorkoutSets
-} from '../hooks/useWorkoutSessions'
+} from '../hooks/useWorkoutSessions';
 import {
     formatLoggedWeight,
     getExerciseNameForPlannedExercise,
     getLoggedSetsForPlannedExercise,
     getNextSetNumber
-} from '../lib/session-view'
-import type { WorkoutDay } from '../lib/workouts'
-import type { WorkoutSession } from '../lib/workout-sessions'
-import { useAuth } from '../../auth/hooks/useAuth'
+} from '../lib/session-view';
+import type { WorkoutDay } from '../lib/workouts';
+import type { WorkoutSession } from '../lib/workout-sessions';
 import {
     addOfflineWorkoutSet,
     createLocalId,
     getOfflineWorkoutSetsForPlannedExercise
-} from '../lib/offline-workout'
-import { useOfflineWorkoutSync } from '../hooks/useOfflineWorkoutSync'
+} from '../lib/offline-workout';
+import { useOfflineWorkoutSync } from '../hooks/useOfflineWorkoutSync';
+import { buildExerciseHistory } from '../lib/exercise-history';
 
 type WorkoutSessionLoggerProps = {
     session: WorkoutSession
@@ -43,41 +55,61 @@ function optionalNumberFromInput(value: string) {
 }
 
 export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: WorkoutSessionLoggerProps) {
-    const profileQuery = useProfile()
-    const { user } = useAuth()
-    const exercisesQuery = useExercises()
-    const plannedExercisesQuery = usePlannedExercises(workoutDay ? [workoutDay.id] : [])
-    const setsQuery = useWorkoutSets(session.id)
-    const createSet = useCreateWorkoutSet()
-    const completeSession = useCompleteWorkoutSession()
-    const offlineSync = useOfflineWorkoutSync(session.id)
+    const profileQuery = useProfile();
+    const { user } = useAuth();
+    const exercisesQuery = useExercises();
+    const plannedExercisesQuery = usePlannedExercises(workoutDay ? [workoutDay.id] : []);
+    const setsQuery = useWorkoutSets(session.id);
+    const allWorkoutSetsQuery = useAllWorkoutSets();
+    const createSet = useCreateWorkoutSet();
+    const completeSession = useCompleteWorkoutSession();
+    const offlineSync = useOfflineWorkoutSync(session.id);
 
-    const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb'
-    const exercises = exercisesQuery.data ?? []
-    const plannedExercises = plannedExercisesQuery.data ?? []
-    const loggedSets = setsQuery.data ?? []
+    const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb';
+    const exercises = exercisesQuery.data ?? [];
+    const plannedExercises = plannedExercisesQuery.data ?? [];
+    const loggedSets = setsQuery.data ?? [];
+    const allWorkoutSets = allWorkoutSetsQuery.data ?? [];
 
-    const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
-    const [weight, setWeight] = useState('')
-    const [weightUnit, setWeightUnit] = useState<WeightUnit>(preferredUnit)
-    const [reps, setReps] = useState('')
-    const [notes, setNotes] = useState('')
-    const [sessionNotes, setSessionNotes] = useState('')
-    const [errorMessage, setErrorMessage] = useState<string | null>(null)
-    const [restSecondsRemaining, setRestSecondsRemaining] = useState(0)
+    const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
+    const [weight, setWeight] = useState('');
+    const [weightUnit, setWeightUnit] = useState<WeightUnit>(preferredUnit);
+    const [reps, setReps] = useState('');
+    const [notes, setNotes] = useState('');
+    const [sessionNotes, setSessionNotes] = useState('');
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
 
-    const activePlannedExercise = plannedExercises[activeExerciseIndex] ?? null
+    const activePlannedExercise = plannedExercises[activeExerciseIndex] ?? null;
+
+    const exerciseHistory = useMemo(
+        () =>
+            buildExerciseHistory({
+                sets: allWorkoutSets,
+                exercises,
+                unit: preferredUnit
+            }),
+        [allWorkoutSets, exercises, preferredUnit]
+    );
+
+    const activeExerciseHistory = activePlannedExercise
+        ? exerciseHistory.find((history) => history.exerciseId === activePlannedExercise.exercise_id) ?? null
+        : null;
+
+    const lastExerciseSet = activeExerciseHistory?.latestSet ?? null;
+    const bestExerciseSet = activeExerciseHistory?.bestEstimatedOneRepMaxSet ?? null;
+
     const activeLoggedSets = activePlannedExercise
         ? getLoggedSetsForPlannedExercise(activePlannedExercise.id, loggedSets)
-        : []
+        : [];
 
     const activeOfflineSets = activePlannedExercise
         ? getOfflineWorkoutSetsForPlannedExercise(session.id, activePlannedExercise.id)
-        : []
+        : [];
 
     const activeRecommendation = activePlannedExercise
         ? buildRecommendationForExercise(activePlannedExercise, activeLoggedSets, preferredUnit)
-        : null
+        : null;
 
     const completedExerciseCount = useMemo(
         () =>
@@ -85,7 +117,11 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                 (plannedExercise) => getLoggedSetsForPlannedExercise(plannedExercise.id, loggedSets).length > 0
             ).length,
         [loggedSets, plannedExercises]
-    )
+    );
+
+    useEffect(() => {
+        setWeightUnit(preferredUnit);
+    }, [preferredUnit]);
 
     const totalExercises = plannedExercises.length
     const activeExerciseNumber = activeExerciseIndex + 1
@@ -122,7 +158,49 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         setRestSecondsRemaining(seconds && seconds > 0 ? seconds : 120)
     }
 
+    function fillSetFromHistorySet(historySet: {
+        weight: number | null;
+        reps: number | null;
+    }) {
+        if (typeof historySet.weight === 'number') {
+            setWeight(String(historySet.weight));
+        }
+
+        if (typeof historySet.reps === 'number') {
+            setReps(String(historySet.reps));
+        }
+    }
+
+    function fillLastSet() {
+        if (!lastExerciseSet) {
+            return;
+        }
+
+        fillSetFromHistorySet(lastExerciseSet);
+    }
+
+    function fillBestSet() {
+        if (!bestExerciseSet) {
+            return;
+        }
+
+        fillSetFromHistorySet(bestExerciseSet);
+    }
+
+    useEffect(() => {
+        if (!lastExerciseSet) {
+            return;
+        }
+
+        if (weight.trim() || reps.trim()) {
+            return;
+        }
+
+        fillSetFromHistorySet(lastExerciseSet);
+    }, [activePlannedExercise?.id, lastExerciseSet]);
+
     async function handleLogSet(event: FormEvent<HTMLFormElement>) {
+
         event.preventDefault()
         setErrorMessage(null)
 
@@ -298,6 +376,69 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                 {getExerciseNameForPlannedExercise(activePlannedExercise, exercises)}
                             </h3>
                         </div>
+
+                        {activeExerciseHistory ? (
+                            <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <History className="size-4 text-emerald-600" />
+                                        <p className="text-sm font-bold">Previous performance</p>
+                                    </div>
+
+                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-stone-600 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-300 dark:ring-neutral-800">
+                                        {activeExerciseHistory.totalSets} sets
+                                    </span>
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-neutral-950 dark:ring-neutral-800">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                            Last set
+                                        </p>
+                                        <p className="mt-1 text-base font-bold">
+                                            {lastExerciseSet?.weight ?? '--'} {preferredUnit} x {lastExerciseSet?.reps ?? '--'}
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-neutral-950 dark:ring-neutral-800">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                            Best estimate
+                                        </p>
+                                        <p className="mt-1 text-base font-bold">
+                                            {bestExerciseSet?.estimatedOneRepMax ?? '--'} {preferredUnit} 1RM
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        onClick={fillLastSet}
+                                        disabled={!lastExerciseSet}
+                                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                                    >
+                                        <History className="size-4" />
+                                        Use last set
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={fillBestSet}
+                                        disabled={!bestExerciseSet}
+                                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                                    >
+                                        <Sparkles className="size-4" />
+                                        Use best set
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                                <p className="text-sm font-semibold text-stone-600 dark:text-stone-300">
+                                    No previous sets for this exercise yet.
+                                </p>
+                            </div>
+                        )}
 
                         {activeLoggedSets.length >= activePlannedExercise.planned_sets ? (
                             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
