@@ -2,11 +2,47 @@ import { LogOut, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ThemeToggle } from '../../components/ui/ThemeToggle'
-import type { ThemePreference, WeightUnit } from '../../lib/supabase/types'
+import type { WeightUnit } from '../../lib/supabase/types'
 import { signOut } from '../auth/lib/auth-client'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProfile, useUpdateProfile } from '../profile/hooks/useProfile'
+import { applyTheme } from '../../lib/utils/theme'
+
+type AppearanceSwitchProps = {
+  value: 'light' | 'dark'
+  onChange: (value: 'light' | 'dark') => void
+  disabled?: boolean
+}
+
+function AppearanceSwitch({ value, onChange, disabled }: AppearanceSwitchProps) {
+  const isDark = value === 'dark'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(isDark ? 'light' : 'dark')}
+      disabled={disabled}
+      className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-stone-200 bg-white p-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950"
+      aria-label="Toggle appearance"
+    >
+      <span className="px-3 text-sm font-semibold text-stone-700 dark:text-stone-200">
+        {isDark ? 'Dark mode' : 'Light mode'}
+      </span>
+
+      <span
+        className={`relative h-10 w-20 rounded-full p-1 transition ${isDark ? 'bg-emerald-600' : 'bg-stone-300 dark:bg-neutral-700'
+          }`}
+      >
+        <span
+          className={`absolute top-1 grid h-8 w-8 place-items-center rounded-full bg-white text-xs font-bold text-stone-900 shadow-sm transition ${isDark ? 'left-11' : 'left-1'
+            }`}
+        >
+          {isDark ? 'D' : 'L'}
+        </span>
+      </span>
+    </button>
+  )
+}
 
 export function SettingsPage() {
   const { user } = useAuth()
@@ -16,7 +52,7 @@ export function SettingsPage() {
 
   const [fullName, setFullName] = useState('')
   const [preferredWeightUnit, setPreferredWeightUnit] = useState<WeightUnit>('lb')
-  const [themePreference, setThemePreference] = useState<ThemePreference>('system')
+  const [themePreference, setThemePreference] = useState<'light' | 'dark'>('light')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -29,7 +65,10 @@ export function SettingsPage() {
 
     setFullName(profile.full_name ?? '')
     setPreferredWeightUnit(profile.preferred_weight_unit)
-    setThemePreference(profile.theme_preference)
+    const savedTheme = profile.theme_preference === 'dark' ? 'dark' : 'light'
+
+    setThemePreference(savedTheme)
+    applyTheme(savedTheme)
   }, [profile])
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -101,7 +140,7 @@ export function SettingsPage() {
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 placeholder="John Smith"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -110,25 +149,43 @@ export function SettingsPage() {
               <select
                 value={preferredWeightUnit}
                 onChange={(event) => setPreferredWeightUnit(event.target.value as WeightUnit)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               >
                 <option value="lb">Pounds</option>
                 <option value="kg">Kilograms</option>
               </select>
             </label>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Saved theme preference</span>
-              <select
+            <div className="grid gap-2">
+              <span className="text-sm font-semibold">Appearance</span>
+              <AppearanceSwitch
                 value={themePreference}
-                onChange={(event) => setThemePreference(event.target.value as ThemePreference)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
+                disabled={updateProfile.isPending}
+                onChange={async (nextTheme) => {
+                  const previousTheme = themePreference
+
+                  setThemePreference(nextTheme)
+                  applyTheme(nextTheme)
+                  setStatusMessage(null)
+                  setErrorMessage(null)
+
+                  try {
+                    await updateProfile.mutateAsync({
+                      theme_preference: nextTheme
+                    })
+
+                    setStatusMessage('Appearance updated.')
+                  } catch (error) {
+                    setThemePreference(previousTheme)
+                    applyTheme(previousTheme)
+                    setErrorMessage(error instanceof Error ? error.message : 'Could not update appearance.')
+                  }
+                }}
+              />
+              <p className="text-xs leading-5 text-stone-500 dark:text-stone-400">
+                This preference is saved to your profile and used across the app.
+              </p>
+            </div>
 
             <button
               type="submit"
@@ -153,15 +210,7 @@ export function SettingsPage() {
           ) : null}
         </form>
 
-        <article className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
-          <h2 className="text-xl font-bold">Local appearance</h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            The toggle changes this browser instantly. The saved preference above is now stored in your Supabase profile.
-          </p>
-          <div className="mt-4">
-            <ThemeToggle />
-          </div>
-        </article>
+
       </div>
     </section>
   )
