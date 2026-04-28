@@ -5,6 +5,7 @@ import {
     createWorkoutSet,
     listWorkoutSessions,
     listWorkoutSets,
+    listAllWorkoutSets,
     startWorkoutSession,
     type CreateWorkoutSetInput,
     deleteWorkoutSession,
@@ -119,5 +120,21 @@ export function useDeleteWorkoutSession() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] });
         },
+    });
+}
+
+export function useAllWorkoutSets() {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['all-workout-sets', user?.id],
+        queryFn: () => {
+            if (!user) {
+                throw new Error('Cannot list workout sets without a signed-in user');
+            }
+
+            return listAllWorkoutSets(user.id);
+        },
+        enabled: Boolean(user),
     });
 }
