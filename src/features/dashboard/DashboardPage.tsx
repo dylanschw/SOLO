@@ -35,7 +35,7 @@ export function DashboardPage() {
       <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Today</p>
       <h1 className="mt-1 text-3xl font-bold tracking-tight">Welcome, {displayName}</h1>
 
-      <div className="mt-6 rounded-2xl bg-stone-900 p-5 text-white shadow-sm dark:bg-white dark:text-stone-950">
+      <div className="mt-6 rounded-2xl bg-stone-900 p-5 text-white shadow-sm dark:bg-neutral-900 dark:text-stone-50 dark:ring-1 dark:ring-neutral-800">
         <p className="text-sm font-medium opacity-70">Profile connected</p>
         <p className="mt-2 text-xl font-bold">
           Preferred unit: {profile?.preferred_weight_unit ?? 'loading...'}
