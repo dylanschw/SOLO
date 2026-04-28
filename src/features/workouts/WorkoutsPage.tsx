@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
 import { WorkoutCsvImport } from './components/WorkoutCsvImport'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { buildExerciseHistory } from './lib/exercise-history';
 import { useProfile } from '../profile/hooks/useProfile';
@@ -1691,7 +1691,12 @@ export function WorkoutsPage() {
                   {session.notes ? (
                     <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">{session.notes}</p>
                   ) : null}
-
+                  <Link
+                    to={`/app/workouts/history/${session.id}`}
+                    className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                  >
+                    View details
+                  </Link>
                   <button
                     type="button"
                     onClick={() => handleDeleteWorkoutSession(session.id)}
