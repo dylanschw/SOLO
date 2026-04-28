@@ -55,6 +55,19 @@ function integerFromInput(value: string, fallback: number) {
   return numberValue
 }
 
+type WorkoutPageSection = 'start' | 'build' | 'import' | 'edit' | 'history'
+
+const workoutPageSections: Array<{
+  id: WorkoutPageSection
+  label: string
+}> = [
+    { id: 'start', label: 'Start' },
+    { id: 'build', label: 'Build' },
+    { id: 'import', label: 'Import' },
+    { id: 'edit', label: 'Edit' },
+    { id: 'history', label: 'History' }
+  ]
+
 export function WorkoutsPage() {
   const programsQuery = useWorkoutPrograms()
   const activeProgramQuery = useActiveWorkoutProgram()
@@ -90,7 +103,7 @@ export function WorkoutsPage() {
 
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null)
   const [activeSessionDay, setActiveSessionDay] = useState<WorkoutDay | null>(null)
-
+  const [activeSection, setActiveSection] = useState<WorkoutPageSection>('start')
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null)
   const [editingProgramName, setEditingProgramName] = useState('')
   const [editingProgramDescription, setEditingProgramDescription] = useState('')
@@ -568,7 +581,21 @@ export function WorkoutsPage() {
     <section>
       <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Train</p>
       <h1 className="mt-1 text-3xl font-bold tracking-tight">Workouts</h1>
-
+      <div className="mt-5 grid grid-cols-5 gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+        {workoutPageSections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => setActiveSection(section.id)}
+            className={`min-h-11 rounded-xl px-2 text-xs font-semibold transition ${activeSection === section.id
+              ? 'bg-white text-stone-950 shadow-sm dark:bg-neutral-950 dark:text-stone-50'
+              : 'text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-50'
+              }`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
       {statusMessage ? (
         <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
           {statusMessage}
@@ -592,868 +619,890 @@ export function WorkoutsPage() {
           }}
         />
       ) : null}
+      {activeSection === 'start' ? (
+        <>
+          <article className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex items-center gap-3">
+              <Dumbbell className="size-5 text-emerald-600" />
+              <h2 className="text-xl font-bold">Current program</h2>
+            </div>
 
-      <article className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
-        <div className="flex items-center gap-3">
-          <Dumbbell className="size-5 text-emerald-600" />
-          <h2 className="text-xl font-bold">Current program</h2>
-        </div>
-
-        {currentProgram ? (
-          <div className="mt-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
-            <p className="text-lg font-bold">{currentProgram.name}</p>
-            <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
-              {currentProgram.rotation_length_days} day rotation
-            </p>
-            {currentProgram.description ? (
-              <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
-                {currentProgram.description}
+            {currentProgram ? (
+              <div className="mt-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+                <p className="text-lg font-bold">{currentProgram.name}</p>
+                <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
+                  {currentProgram.rotation_length_days} day rotation
+                </p>
+                {currentProgram.description ? (
+                  <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+                    {currentProgram.description}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                Create your first program below.
               </p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Create your first program below.
-          </p>
-        )}
+            )}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={startEditingProgram}
-            disabled={!currentProgram}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
-          >
-            <Pencil className="size-4" />
-            Edit program
-          </button>
-
-          <button
-            type="button"
-            onClick={handleArchiveProgram}
-            disabled={!currentProgramId || archiveProgram.isPending}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
-          >
-            <Archive className="size-4" />
-            Archive
-          </button>
-        </div>
-
-        {editingProgramId ? (
-          <form onSubmit={handleUpdateProgram} className="mt-4 grid gap-4 rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Program name</span>
-              <input
-                value={editingProgramName}
-                onChange={(event) => setEditingProgramName(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Rotation length (days)</span>
-              <input
-                type="number"
-                value={editingProgramRotationLength}
-                onChange={(event) => setEditingProgramRotationLength(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Description</span>
-              <textarea
-                value={editingProgramDescription}
-                onChange={(event) => setEditingProgramDescription(event.target.value)}
-                rows={3}
-                className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
-                type="submit"
-                disabled={updateProgram.isPending}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                type="button"
+                onClick={startEditingProgram}
+                disabled={!currentProgram}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
               >
-                <Save className="size-4" />
-                Save
+                <Pencil className="size-4" />
+                Edit program
               </button>
 
               <button
                 type="button"
-                onClick={cancelEditingProgram}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-800"
+                onClick={handleArchiveProgram}
+                disabled={!currentProgramId || archiveProgram.isPending}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
               >
-                <X className="size-4" />
-                Cancel
+                <Archive className="size-4" />
+                Archive
               </button>
             </div>
-          </form>
-        ) : null}
 
-        <div className="mt-4 grid gap-3">
-          {programs.map((program) => (
-            <button
-              key={program.id}
-              type="button"
-              onClick={() => setSelectedProgramId(program.id)}
-              className={`rounded-xl border p-4 text-left transition ${currentProgramId === program.id
-                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-                : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900'
-                }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{program.name}</p>
-                  <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                    {program.rotation_length_days} days
-                  </p>
-                </div>
+            {editingProgramId ? (
+              <form onSubmit={handleUpdateProgram} className="mt-4 grid gap-4 rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Program name</span>
+                  <input
+                    value={editingProgramName}
+                    onChange={(event) => setEditingProgramName(event.target.value)}
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
 
-                {program.is_active ? (
-                  <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
-                    Active
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
-                    Select
-                  </span>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Rotation length (days)</span>
+                  <input
+                    type="number"
+                    value={editingProgramRotationLength}
+                    onChange={(event) => setEditingProgramRotationLength(event.target.value)}
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
 
-        {currentProgramId ? (
-          <button
-            type="button"
-            onClick={() => handleSetActive(currentProgramId)}
-            disabled={setActiveProgram.isPending}
-            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-stone-950 dark:hover:bg-stone-200"
-          >
-            <Star className="size-4" />
-            {setActiveProgram.isPending ? 'Updating...' : 'Set selected as active'}
-          </button>
-        ) : null}
-      </article>
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Description</span>
+                  <textarea
+                    value={editingProgramDescription}
+                    onChange={(event) => setEditingProgramDescription(event.target.value)}
+                    rows={3}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
 
-      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
-        <h2 className="text-xl font-bold">Start workout</h2>
-
-        {days.filter((day) => !day.is_rest_day).length === 0 ? (
-          <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Create workout days and add exercises before starting a workout.
-          </p>
-        ) : null}
-
-        <div className="mt-4 grid gap-3">
-          {days
-            .filter((day) => !day.is_rest_day)
-            .map((day) => (
-              <button
-                key={day.id}
-                type="button"
-                onClick={() => handleStartWorkout(day)}
-                disabled={startSession.isPending}
-                className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-              >
-                <span className="font-semibold">
-                  Day {day.day_number}: {day.name}
-                </span>
-                <Play className="size-4" />
-              </button>
-            ))}
-        </div>
-      </article>
-
-      <WorkoutCsvImport onImported={refetchWorkoutData} />
-
-      <WorkoutTextImportWizard onImported={refetchWorkoutData} />
-
-      <form
-        onSubmit={handleCreateProgram}
-        className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
-      >
-        <h2 className="text-xl font-bold">Create program</h2>
-
-        <div className="mt-5 grid gap-4">
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Program name</span>
-            <input
-              value={programName}
-              onChange={(event) => setProgramName(event.target.value)}
-              placeholder="Workout Program Name"
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Rotation length (days)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={rotationLengthDays}
-              onChange={(event) => setRotationLengthDays(event.target.value)}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Description</span>
-            <textarea
-              value={programDescription}
-              onChange={(event) => setProgramDescription(event.target.value)}
-              placeholder="Program description"
-              rows={3}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={createProgram.isPending}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <Plus className="size-4" />
-            {createProgram.isPending ? 'Creating...' : 'Create program'}
-          </button>
-        </div>
-      </form>
-
-      <form
-        onSubmit={handleCreateDay}
-        className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
-      >
-        <h2 className="text-xl font-bold">Create workout day</h2>
-
-        <div className="mt-5 grid gap-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[90px_1fr]">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Day</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={dayNumber}
-                onChange={(event) => setDayNumber(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Name</span>
-              <input
-                value={dayName}
-                onChange={(event) => setDayName(event.target.value)}
-                placeholder="Workout Day Name"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-          </div>
-
-          <label className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 px-4 dark:border-neutral-700">
-            <input
-              type="checkbox"
-              checked={isRestDay}
-              onChange={(event) => setIsRestDay(event.target.checked)}
-            />
-            <span className="text-sm font-semibold">Rest day</span>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Notes</span>
-            <textarea
-              value={dayNotes}
-              onChange={(event) => setDayNotes(event.target.value)}
-              placeholder="Optional day notes"
-              rows={3}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={createDay.isPending}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <Plus className="size-4" />
-            {createDay.isPending ? 'Creating...' : 'Create day'}
-          </button>
-        </div>
-      </form>
-
-      <form
-        onSubmit={handleCreateExercise}
-        className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
-      >
-        <h2 className="text-xl font-bold">Create exercise</h2>
-
-        <div className="mt-5 grid gap-4">
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Exercise name</span>
-            <input
-              value={exerciseName}
-              onChange={(event) => setExerciseName(event.target.value)}
-              placeholder="Exercise Name"
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Muscle group</span>
-              <input
-                value={exerciseMuscleGroup}
-                onChange={(event) => setExerciseMuscleGroup(event.target.value)}
-                placeholder="Muscle Group"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Equipment</span>
-              <input
-                value={exerciseEquipment}
-                onChange={(event) => setExerciseEquipment(event.target.value)}
-                placeholder="Equipment"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-          </div>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Notes</span>
-            <textarea
-              value={exerciseNotes}
-              onChange={(event) => setExerciseNotes(event.target.value)}
-              placeholder="Exercise notes"
-              rows={3}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={createExercise.isPending}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <Plus className="size-4" />
-            {createExercise.isPending ? 'Creating...' : 'Create exercise'}
-          </button>
-        </div>
-      </form>
-
-      <form
-        onSubmit={handleAddPlannedExercise}
-        className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
-      >
-        <h2 className="text-xl font-bold">Add exercise to day</h2>
-
-        <div className="mt-5 grid gap-4">
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Workout day</span>
-            <select
-              value={selectedDayId}
-              onChange={(event) => setSelectedDayId(event.target.value)}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            >
-              <option value="">Choose day</option>
-              {days.map((day) => (
-                <option key={day.id} value={day.id}>
-                  Day {day.day_number}: {day.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Exercise</span>
-            <select
-              value={selectedExerciseId}
-              onChange={(event) => setSelectedExerciseId(event.target.value)}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            >
-              <option value="">Choose exercise</option>
-              {exercises.map((exercise) => (
-                <option key={exercise.id} value={exercise.id}>
-                  {exercise.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Order</span>
-              <input
-                type="number"
-                value={sortOrder}
-                onChange={(event) => setSortOrder(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Set type</span>
-              <select
-                value={setType}
-                onChange={(event) => setSetType(event.target.value as ExerciseSetType)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              >
-                <option value="straight">Straight</option>
-                <option value="top_set_backoff">Top set/backoff</option>
-                <option value="warmup">Warmup</option>
-                <option value="custom">Custom</option>
-              </select>
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Sets</span>
-              <input
-                type="number"
-                value={plannedSets}
-                onChange={(event) => setPlannedSets(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">RPE</span>
-              <input
-                type="number"
-                value={targetRpe}
-                onChange={(event) => setTargetRpe(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Min reps</span>
-              <input
-                type="number"
-                value={minReps}
-                onChange={(event) => setMinReps(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Max reps</span>
-              <input
-                type="number"
-                value={maxReps}
-                onChange={(event) => setMaxReps(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Rest seconds</span>
-              <input
-                type="number"
-                value={restSeconds}
-                onChange={(event) => setRestSeconds(event.target.value)}
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Backoff percent</span>
-              <input
-                type="number"
-                value={backoffPercent}
-                onChange={(event) => setBackoffPercent(event.target.value)}
-                placeholder="Optional"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-              />
-            </label>
-          </div>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Progression rule</span>
-            <textarea
-              value={progressionRule}
-              onChange={(event) => setProgressionRule(event.target.value)}
-              rows={2}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Deload rule</span>
-            <textarea
-              value={deloadRule}
-              onChange={(event) => setDeloadRule(event.target.value)}
-              rows={3}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold">Notes</span>
-            <textarea
-              value={plannedNotes}
-              onChange={(event) => setPlannedNotes(event.target.value)}
-              placeholder="Optional notes"
-              rows={3}
-              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={addPlannedExercise.isPending}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <Plus className="size-4" />
-            {addPlannedExercise.isPending ? 'Adding...' : 'Add exercise to day'}
-          </button>
-        </div>
-      </form>
-
-      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
-        <h2 className="text-xl font-bold">Program days</h2>
-
-        {days.length === 0 ? (
-          <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            No days yet. Create Day 1, Day 2, and so on above.
-          </p>
-        ) : null}
-
-        <div className="mt-4 grid gap-4">
-          {days.map((day) => {
-            const dayPlannedExercises = getPlannedExercisesForDay(day.id, plannedExercises)
-            const isEditingThisDay = editingDayId === day.id
-
-            return (
-              <div key={day.id} className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold">
-                      Day {day.day_number}: {day.name}
-                    </p>
-                    {day.notes ? (
-                      <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{day.notes}</p>
-                    ) : null}
-                  </div>
-
-                  {day.is_rest_day ? (
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
-                      Rest
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <button
-                    type="button"
-                    onClick={() => startEditingDay(day)}
-                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                    type="submit"
+                    disabled={updateProgram.isPending}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                   >
-                    <Pencil className="size-4" />
-                    Edit day
+                    <Save className="size-4" />
+                    Save
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleDeleteDay(day.id)}
-                    disabled={deleteDay.isPending}
-                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
+                    onClick={cancelEditingProgram}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-800"
                   >
-                    <Trash2 className="size-4" />
-                    Delete
+                    <X className="size-4" />
+                    Cancel
                   </button>
                 </div>
+              </form>
+            ) : null}
 
-                {isEditingThisDay ? (
-                  <form onSubmit={handleUpdateDay} className="mt-4 grid gap-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[90px_1fr]">
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-sm font-semibold">Day</span>
-                        <input
-                          type="number"
-                          value={editingDayNumber}
-                          onChange={(event) => setEditingDayNumber(event.target.value)}
-                          className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                        />
-                      </label>
-
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-sm font-semibold">Name</span>
-                        <input
-                          value={editingDayName}
-                          onChange={(event) => setEditingDayName(event.target.value)}
-                          className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                        />
-                      </label>
+            <div className="mt-4 grid gap-3">
+              {programs.map((program) => (
+                <button
+                  key={program.id}
+                  type="button"
+                  onClick={() => setSelectedProgramId(program.id)}
+                  className={`rounded-xl border p-4 text-left transition ${currentProgramId === program.id
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+                    : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900'
+                    }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{program.name}</p>
+                      <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                        {program.rotation_length_days} days
+                      </p>
                     </div>
 
-                    <label className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 dark:border-neutral-700 dark:bg-neutral-950">
-                      <input
-                        type="checkbox"
-                        checked={editingDayIsRestDay}
-                        onChange={(event) => setEditingDayIsRestDay(event.target.checked)}
-                      />
-                      <span className="text-sm font-semibold">Rest day</span>
-                    </label>
+                    {program.is_active ? (
+                      <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                        Select
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
 
-                    <label className="grid gap-2">
-                      <span className="text-sm font-semibold">Notes</span>
-                      <textarea
-                        value={editingDayNotes}
-                        onChange={(event) => setEditingDayNotes(event.target.value)}
-                        rows={3}
-                        className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                      />
-                    </label>
+            {currentProgramId ? (
+              <button
+                type="button"
+                onClick={() => handleSetActive(currentProgramId)}
+                disabled={setActiveProgram.isPending}
+                className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-stone-950 dark:hover:bg-stone-200"
+              >
+                <Star className="size-4" />
+                {setActiveProgram.isPending ? 'Updating...' : 'Set selected as active'}
+              </button>
+            ) : null}
+          </article>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+            <h2 className="text-xl font-bold">Start workout</h2>
+
+            {days.filter((day) => !day.is_rest_day).length === 0 ? (
+              <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                Create workout days and add exercises before starting a workout.
+              </p>
+            ) : null}
+
+            <div className="mt-4 grid gap-3">
+              {days
+                .filter((day) => !day.is_rest_day)
+                .map((day) => (
+                  <button
+                    key={day.id}
+                    type="button"
+                    onClick={() => handleStartWorkout(day)}
+                    disabled={startSession.isPending}
+                    className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                  >
+                    <span className="font-semibold">
+                      Day {day.day_number}: {day.name}
+                    </span>
+                    <Play className="size-4" />
+                  </button>
+                ))}
+            </div>
+          </article>
+        </>
+      ) : null}
+
+      {
+        activeSection === 'import' ? (
+          <>
+            <WorkoutCsvImport onImported={refetchWorkoutData} />
+
+            <WorkoutTextImportWizard onImported={refetchWorkoutData} />
+          </>
+        ) : null
+      }
+      {
+        activeSection === 'build' ? (
+          <>
+            <form
+              onSubmit={handleCreateProgram}
+              className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
+            >
+              <h2 className="text-xl font-bold">Create program</h2>
+
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Program name</span>
+                  <input
+                    value={programName}
+                    onChange={(event) => setProgramName(event.target.value)}
+                    placeholder="Workout Program Name"
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Rotation length (days)</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={rotationLengthDays}
+                    onChange={(event) => setRotationLengthDays(event.target.value)}
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Description</span>
+                  <textarea
+                    value={programDescription}
+                    onChange={(event) => setProgramDescription(event.target.value)}
+                    placeholder="Program description"
+                    rows={3}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={createProgram.isPending}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Plus className="size-4" />
+                  {createProgram.isPending ? 'Creating...' : 'Create program'}
+                </button>
+              </div>
+            </form>
+
+            <form
+              onSubmit={handleCreateDay}
+              className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
+            >
+              <h2 className="text-xl font-bold">Create workout day</h2>
+
+              <div className="mt-5 grid gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[90px_1fr]">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Day</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={dayNumber}
+                      onChange={(event) => setDayNumber(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Name</span>
+                    <input
+                      value={dayName}
+                      onChange={(event) => setDayName(event.target.value)}
+                      placeholder="Workout Day Name"
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+                </div>
+
+                <label className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 px-4 dark:border-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={isRestDay}
+                    onChange={(event) => setIsRestDay(event.target.checked)}
+                  />
+                  <span className="text-sm font-semibold">Rest day</span>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Notes</span>
+                  <textarea
+                    value={dayNotes}
+                    onChange={(event) => setDayNotes(event.target.value)}
+                    placeholder="Optional day notes"
+                    rows={3}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={createDay.isPending}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Plus className="size-4" />
+                  {createDay.isPending ? 'Creating...' : 'Create day'}
+                </button>
+              </div>
+            </form>
+
+            <form
+              onSubmit={handleCreateExercise}
+              className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
+            >
+              <h2 className="text-xl font-bold">Create exercise</h2>
+
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Exercise name</span>
+                  <input
+                    value={exerciseName}
+                    onChange={(event) => setExerciseName(event.target.value)}
+                    placeholder="Exercise Name"
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Muscle group</span>
+                    <input
+                      value={exerciseMuscleGroup}
+                      onChange={(event) => setExerciseMuscleGroup(event.target.value)}
+                      placeholder="Muscle Group"
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Equipment</span>
+                    <input
+                      value={exerciseEquipment}
+                      onChange={(event) => setExerciseEquipment(event.target.value)}
+                      placeholder="Equipment"
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+                </div>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Notes</span>
+                  <textarea
+                    value={exerciseNotes}
+                    onChange={(event) => setExerciseNotes(event.target.value)}
+                    placeholder="Exercise notes"
+                    rows={3}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={createExercise.isPending}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Plus className="size-4" />
+                  {createExercise.isPending ? 'Creating...' : 'Create exercise'}
+                </button>
+              </div>
+            </form>
+
+            <form
+              onSubmit={handleAddPlannedExercise}
+              className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
+            >
+              <h2 className="text-xl font-bold">Add exercise to day</h2>
+
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Workout day</span>
+                  <select
+                    value={selectedDayId}
+                    onChange={(event) => setSelectedDayId(event.target.value)}
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  >
+                    <option value="">Choose day</option>
+                    {days.map((day) => (
+                      <option key={day.id} value={day.id}>
+                        Day {day.day_number}: {day.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Exercise</span>
+                  <select
+                    value={selectedExerciseId}
+                    onChange={(event) => setSelectedExerciseId(event.target.value)}
+                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  >
+                    <option value="">Choose exercise</option>
+                    {exercises.map((exercise) => (
+                      <option key={exercise.id} value={exercise.id}>
+                        {exercise.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Order</span>
+                    <input
+                      type="number"
+                      value={sortOrder}
+                      onChange={(event) => setSortOrder(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Set type</span>
+                    <select
+                      value={setType}
+                      onChange={(event) => setSetType(event.target.value as ExerciseSetType)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    >
+                      <option value="straight">Straight</option>
+                      <option value="top_set_backoff">Top set/backoff</option>
+                      <option value="warmup">Warmup</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Sets</span>
+                    <input
+                      type="number"
+                      value={plannedSets}
+                      onChange={(event) => setPlannedSets(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">RPE</span>
+                    <input
+                      type="number"
+                      value={targetRpe}
+                      onChange={(event) => setTargetRpe(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Min reps</span>
+                    <input
+                      type="number"
+                      value={minReps}
+                      onChange={(event) => setMinReps(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Max reps</span>
+                    <input
+                      type="number"
+                      value={maxReps}
+                      onChange={(event) => setMaxReps(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Rest seconds</span>
+                    <input
+                      type="number"
+                      value={restSeconds}
+                      onChange={(event) => setRestSeconds(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Backoff percent</span>
+                    <input
+                      type="number"
+                      value={backoffPercent}
+                      onChange={(event) => setBackoffPercent(event.target.value)}
+                      placeholder="Optional"
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+                </div>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Progression rule</span>
+                  <textarea
+                    value={progressionRule}
+                    onChange={(event) => setProgressionRule(event.target.value)}
+                    rows={2}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Deload rule</span>
+                  <textarea
+                    value={deloadRule}
+                    onChange={(event) => setDeloadRule(event.target.value)}
+                    rows={3}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Notes</span>
+                  <textarea
+                    value={plannedNotes}
+                    onChange={(event) => setPlannedNotes(event.target.value)}
+                    placeholder="Optional notes"
+                    rows={3}
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={addPlannedExercise.isPending}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Plus className="size-4" />
+                  {addPlannedExercise.isPending ? 'Adding...' : 'Add exercise to day'}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : null}
+
+      {
+        activeSection === 'edit' ? (
+          <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+            <h2 className="text-xl font-bold">Program days</h2>
+
+            {days.length === 0 ? (
+              <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                No days yet. Create Day 1, Day 2, and so on above.
+              </p>
+            ) : null}
+
+            <div className="mt-4 grid gap-4">
+              {days.map((day) => {
+                const dayPlannedExercises = getPlannedExercisesForDay(day.id, plannedExercises)
+                const isEditingThisDay = editingDayId === day.id
+
+                return (
+                  <div key={day.id} className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold">
+                          Day {day.day_number}: {day.name}
+                        </p>
+                        {day.notes ? (
+                          <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{day.notes}</p>
+                        ) : null}
+                      </div>
+
+                      {day.is_rest_day ? (
+                        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                          Rest
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <button
-                        type="submit"
-                        disabled={updateDay.isPending}
-                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                        type="button"
+                        onClick={() => startEditingDay(day)}
+                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
                       >
-                        <Save className="size-4" />
-                        Save
+                        <Pencil className="size-4" />
+                        Edit day
                       </button>
 
                       <button
                         type="button"
-                        onClick={cancelEditingDay}
-                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                        onClick={() => handleDeleteDay(day.id)}
+                        disabled={deleteDay.isPending}
+                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
                       >
-                        <X className="size-4" />
-                        Cancel
+                        <Trash2 className="size-4" />
+                        Delete
                       </button>
                     </div>
-                  </form>
-                ) : null}
 
-                {dayPlannedExercises.length > 0 ? (
-                  <div className="mt-4 grid gap-3">
-                    {dayPlannedExercises.map((plannedExercise) => {
-                      const isEditingThisExercise = editingPlannedExerciseId === plannedExercise.id
+                    {isEditingThisDay ? (
+                      <form onSubmit={handleUpdateDay} className="mt-4 grid gap-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[90px_1fr]">
+                          <label className="grid min-w-0 gap-2">
+                            <span className="text-sm font-semibold">Day</span>
+                            <input
+                              type="number"
+                              value={editingDayNumber}
+                              onChange={(event) => setEditingDayNumber(event.target.value)}
+                              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                          </label>
 
-                      return (
-                        <div key={plannedExercise.id} className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
-                          <p className="font-semibold">
-                            {plannedExercise.sort_order}. {getExerciseName(plannedExercise.exercise_id, exercises)}
-                          </p>
-                          <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
-                            {plannedExercise.planned_sets} sets
-                            {plannedExercise.min_reps && plannedExercise.max_reps
-                              ? ` x ${plannedExercise.min_reps}-${plannedExercise.max_reps} reps`
-                              : ''}
-                            {plannedExercise.target_rpe ? `, RPE ${plannedExercise.target_rpe}` : ''}
-                            {plannedExercise.rest_seconds ? `, ${plannedExercise.rest_seconds}s rest` : ''}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                            {plannedExercise.set_type.replaceAll('_', ' ')}
-                          </p>
-                          {plannedExercise.notes ? (
-                            <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
-                              {plannedExercise.notes}
-                            </p>
-                          ) : null}
+                          <label className="grid min-w-0 gap-2">
+                            <span className="text-sm font-semibold">Name</span>
+                            <input
+                              value={editingDayName}
+                              onChange={(event) => setEditingDayName(event.target.value)}
+                              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                          </label>
+                        </div>
 
-                          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <button
-                              type="button"
-                              onClick={() => startEditingPlannedExercise(plannedExercise)}
-                              className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-                            >
-                              <Pencil className="size-4" />
-                              Edit
-                            </button>
+                        <label className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 dark:border-neutral-700 dark:bg-neutral-950">
+                          <input
+                            type="checkbox"
+                            checked={editingDayIsRestDay}
+                            onChange={(event) => setEditingDayIsRestDay(event.target.checked)}
+                          />
+                          <span className="text-sm font-semibold">Rest day</span>
+                        </label>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDeletePlannedExercise(plannedExercise.id)}
-                              disabled={deletePlannedExercise.isPending}
-                              className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-red-950/30"
-                            >
-                              <Trash2 className="size-4" />
-                              Remove
-                            </button>
-                          </div>
+                        <label className="grid gap-2">
+                          <span className="text-sm font-semibold">Notes</span>
+                          <textarea
+                            value={editingDayNotes}
+                            onChange={(event) => setEditingDayNotes(event.target.value)}
+                            rows={3}
+                            className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                          />
+                        </label>
 
-                          {isEditingThisExercise ? (
-                            <form onSubmit={handleUpdatePlannedExercise} className="mt-4 grid gap-4 rounded-xl border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Order</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedSortOrder}
-                                    onChange={(event) => setEditingPlannedSortOrder(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <button
+                            type="submit"
+                            disabled={updateDay.isPending}
+                            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            <Save className="size-4" />
+                            Save
+                          </button>
 
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Set type</span>
-                                  <select
-                                    value={editingPlannedSetType}
-                                    onChange={(event) => setEditingPlannedSetType(event.target.value as ExerciseSetType)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  >
-                                    <option value="straight">Straight</option>
-                                    <option value="top_set_backoff">Top set/backoff</option>
-                                    <option value="warmup">Warmup</option>
-                                    <option value="custom">Custom</option>
-                                  </select>
-                                </label>
+                          <button
+                            type="button"
+                            onClick={cancelEditingDay}
+                            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                          >
+                            <X className="size-4" />
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
 
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Sets</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedSets}
-                                    onChange={(event) => setEditingPlannedSets(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
+                    {dayPlannedExercises.length > 0 ? (
+                      <div className="mt-4 grid gap-3">
+                        {dayPlannedExercises.map((plannedExercise) => {
+                          const isEditingThisExercise = editingPlannedExerciseId === plannedExercise.id
 
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">RPE target</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedTargetRpe}
-                                    onChange={(event) => setEditingPlannedTargetRpe(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
+                          return (
+                            <div key={plannedExercise.id} className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+                              <p className="font-semibold">
+                                {plannedExercise.sort_order}. {getExerciseName(plannedExercise.exercise_id, exercises)}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
+                                {plannedExercise.planned_sets} sets
+                                {plannedExercise.min_reps && plannedExercise.max_reps
+                                  ? ` x ${plannedExercise.min_reps}-${plannedExercise.max_reps} reps`
+                                  : ''}
+                                {plannedExercise.target_rpe ? `, RPE ${plannedExercise.target_rpe}` : ''}
+                                {plannedExercise.rest_seconds ? `, ${plannedExercise.rest_seconds}s rest` : ''}
+                              </p>
+                              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                {plannedExercise.set_type.replaceAll('_', ' ')}
+                              </p>
+                              {plannedExercise.notes ? (
+                                <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+                                  {plannedExercise.notes}
+                                </p>
+                              ) : null}
 
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Min reps</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedMinReps}
-                                    onChange={(event) => setEditingPlannedMinReps(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
-
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Max reps</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedMaxReps}
-                                    onChange={(event) => setEditingPlannedMaxReps(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
-
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Rest seconds</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedRestSeconds}
-                                    onChange={(event) => setEditingPlannedRestSeconds(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
-
-                                <label className="grid min-w-0 gap-2">
-                                  <span className="text-sm font-semibold">Backoff percent</span>
-                                  <input
-                                    type="number"
-                                    value={editingPlannedBackoffPercent}
-                                    onChange={(event) => setEditingPlannedBackoffPercent(event.target.value)}
-                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                  />
-                                </label>
-                              </div>
-
-                              <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Progression rule</span>
-                                <textarea
-                                  value={editingPlannedProgressionRule}
-                                  onChange={(event) => setEditingPlannedProgressionRule(event.target.value)}
-                                  rows={2}
-                                  className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                              </label>
-
-                              <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Deload rule</span>
-                                <textarea
-                                  value={editingPlannedDeloadRule}
-                                  onChange={(event) => setEditingPlannedDeloadRule(event.target.value)}
-                                  rows={3}
-                                  className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                              </label>
-
-                              <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Notes</span>
-                                <textarea
-                                  value={editingPlannedNotes}
-                                  onChange={(event) => setEditingPlannedNotes(event.target.value)}
-                                  rows={3}
-                                  className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                              </label>
-
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <button
-                                  type="submit"
-                                  disabled={updatePlannedExercise.isPending}
-                                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                  type="button"
+                                  onClick={() => startEditingPlannedExercise(plannedExercise)}
+                                  className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
                                 >
-                                  <Save className="size-4" />
-                                  Save
+                                  <Pencil className="size-4" />
+                                  Edit
                                 </button>
 
                                 <button
                                   type="button"
-                                  onClick={cancelEditingPlannedExercise}
-                                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-800"
+                                  onClick={() => handleDeletePlannedExercise(plannedExercise.id)}
+                                  disabled={deletePlannedExercise.isPending}
+                                  className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-red-950/30"
                                 >
-                                  <X className="size-4" />
-                                  Cancel
+                                  <Trash2 className="size-4" />
+                                  Remove
                                 </button>
                               </div>
-                            </form>
-                          ) : null}
-                        </div>
-                      )
-                    })}
+
+                              {isEditingThisExercise ? (
+                                <form onSubmit={handleUpdatePlannedExercise} className="mt-4 grid gap-4 rounded-xl border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Order</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedSortOrder}
+                                        onChange={(event) => setEditingPlannedSortOrder(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Set type</span>
+                                      <select
+                                        value={editingPlannedSetType}
+                                        onChange={(event) => setEditingPlannedSetType(event.target.value as ExerciseSetType)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      >
+                                        <option value="straight">Straight</option>
+                                        <option value="top_set_backoff">Top set/backoff</option>
+                                        <option value="warmup">Warmup</option>
+                                        <option value="custom">Custom</option>
+                                      </select>
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Sets</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedSets}
+                                        onChange={(event) => setEditingPlannedSets(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">RPE target</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedTargetRpe}
+                                        onChange={(event) => setEditingPlannedTargetRpe(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Min reps</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedMinReps}
+                                        onChange={(event) => setEditingPlannedMinReps(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Max reps</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedMaxReps}
+                                        onChange={(event) => setEditingPlannedMaxReps(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Rest seconds</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedRestSeconds}
+                                        onChange={(event) => setEditingPlannedRestSeconds(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+
+                                    <label className="grid min-w-0 gap-2">
+                                      <span className="text-sm font-semibold">Backoff percent</span>
+                                      <input
+                                        type="number"
+                                        value={editingPlannedBackoffPercent}
+                                        onChange={(event) => setEditingPlannedBackoffPercent(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <label className="grid gap-2">
+                                    <span className="text-sm font-semibold">Progression rule</span>
+                                    <textarea
+                                      value={editingPlannedProgressionRule}
+                                      onChange={(event) => setEditingPlannedProgressionRule(event.target.value)}
+                                      rows={2}
+                                      className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                    />
+                                  </label>
+
+                                  <label className="grid gap-2">
+                                    <span className="text-sm font-semibold">Deload rule</span>
+                                    <textarea
+                                      value={editingPlannedDeloadRule}
+                                      onChange={(event) => setEditingPlannedDeloadRule(event.target.value)}
+                                      rows={3}
+                                      className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                    />
+                                  </label>
+
+                                  <label className="grid gap-2">
+                                    <span className="text-sm font-semibold">Notes</span>
+                                    <textarea
+                                      value={editingPlannedNotes}
+                                      onChange={(event) => setEditingPlannedNotes(event.target.value)}
+                                      rows={3}
+                                      className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                    />
+                                  </label>
+
+                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <button
+                                      type="submit"
+                                      disabled={updatePlannedExercise.isPending}
+                                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                    >
+                                      <Save className="size-4" />
+                                      Save
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditingPlannedExercise}
+                                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-800"
+                                    >
+                                      <X className="size-4" />
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : null}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">
+                        No exercises added yet.
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">
-                    No exercises added yet.
-                  </p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </article>
-
-      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
-        <h2 className="text-xl font-bold">Workout history</h2>
-
-        {recentSessions.length === 0 ? (
-          <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
-            Completed and in progress workouts will appear here.
-          </p>
-        ) : null}
-
-        <div className="mt-4 grid gap-3">
-          {recentSessions.map((session) => (
-            <div key={session.id} className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
-              <p className="font-semibold">{session.session_date}</p>
-              <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                Status: {session.status.replaceAll('_', ' ')}
-              </p>
-              {session.notes ? (
-                <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">{session.notes}</p>
-              ) : null}
+                )
+              })}
             </div>
-          ))}
-        </div>
-      </article>
-    </section>
+          </article>
+        ) : null
+      }
+
+      {
+        activeSection === 'history' ? (
+
+          <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+            <h2 className="text-xl font-bold">Workout history</h2>
+
+            {recentSessions.length === 0 ? (
+              <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                Completed and in progress workouts will appear here.
+              </p>
+            ) : null}
+
+            <div className="mt-4 grid gap-3">
+              {recentSessions.map((session) => (
+                <div key={session.id} className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
+                  <p className="font-semibold">{session.session_date}</p>
+                  <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                    Status: {session.status.replaceAll('_', ' ')}
+                  </p>
+                  {session.notes ? (
+                    <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">{session.notes}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null
+      }
+    </section >
   )
 }
