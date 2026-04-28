@@ -215,13 +215,13 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                 </div>
             </div>
 
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+            <div className="mt-4 grid grid-cols-1 gap-2">
                 {plannedExercises.map((plannedExercise, index) => (
                     <button
                         key={plannedExercise.id}
                         type="button"
                         onClick={() => setActiveExerciseIndex(index)}
-                        className={`shrink-0 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${index === activeExerciseIndex
+                        className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${index === activeExerciseIndex
                             ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                             : 'border-stone-200 bg-white text-stone-600 dark:border-neutral-800 dark:bg-neutral-950 dark:text-stone-300'
                             }`}

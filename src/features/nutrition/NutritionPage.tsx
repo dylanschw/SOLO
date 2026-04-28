@@ -179,7 +179,7 @@ export function NutritionPage() {
       <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Food</p>
       <h1 className="mt-1 text-3xl font-bold tracking-tight">Nutrition</h1>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <article className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
           <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Meals today</p>
           <p className="mt-2 text-2xl font-bold">{summary.mealCount}</p>
@@ -223,7 +223,7 @@ export function NutritionPage() {
               type="date"
               value={logDate}
               onChange={(event) => setLogDate(event.target.value)}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
             />
           </label>
 
@@ -234,11 +234,11 @@ export function NutritionPage() {
               inputMode="numeric"
               value={mealCount}
               onChange={(event) => setMealCount(event.target.value)}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Calories</span>
               <input
@@ -247,7 +247,7 @@ export function NutritionPage() {
                 value={calories}
                 onChange={(event) => setCalories(event.target.value)}
                 placeholder="2500"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -259,7 +259,7 @@ export function NutritionPage() {
                 value={proteinG}
                 onChange={(event) => setProteinG(event.target.value)}
                 placeholder="180"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -271,7 +271,7 @@ export function NutritionPage() {
                 value={carbsG}
                 onChange={(event) => setCarbsG(event.target.value)}
                 placeholder="300"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -283,7 +283,7 @@ export function NutritionPage() {
                 value={fatG}
                 onChange={(event) => setFatG(event.target.value)}
                 placeholder="80"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
           </div>
@@ -325,7 +325,7 @@ export function NutritionPage() {
             <select
               value={targetMode}
               onChange={(event) => setTargetMode(event.target.value as 'manual' | 'calculated')}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
             >
               <option value="manual">Manual</option>
               <option value="calculated">Calculated from bodyweight</option>
@@ -337,7 +337,7 @@ export function NutritionPage() {
             <select
               value={goalType}
               onChange={(event) => setGoalType(event.target.value as NutritionGoalType)}
-              className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
             >
               <option value="gain_weight">Gain weight</option>
               <option value="lose_weight">Lose weight</option>
@@ -355,7 +355,7 @@ export function NutritionPage() {
                   value={targetBodyweight}
                   onChange={(event) => setTargetBodyweight(event.target.value)}
                   placeholder={preferredUnit === 'lb' ? '180' : '82'}
-                  className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                 />
               </label>
 
@@ -364,7 +364,7 @@ export function NutritionPage() {
                 <select
                   value={activityLevel}
                   onChange={(event) => setActivityLevel(event.target.value as ActivityLevel)}
-                  className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                 >
                   <option value="sedentary">Sedentary, little activity</option>
                   <option value="light">Light, some walking or light training</option>
@@ -386,7 +386,7 @@ export function NutritionPage() {
                     value={weeklyChange}
                     onChange={(event) => setWeeklyChange(event.target.value)}
                     placeholder={preferredUnit === 'lb' ? '0.5' : '0.25'}
-                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                   />
                   <p className="text-xs leading-5 text-stone-500 dark:text-stone-400">
                     Conservative bulks are often around 0.25 to 0.5 lb per week. Faster changes are more aggressive and may be less accurate.
@@ -402,7 +402,7 @@ export function NutritionPage() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Calories target</span>
               <input
@@ -411,7 +411,7 @@ export function NutritionPage() {
                 value={targetCalories}
                 onChange={(event) => setTargetCalories(event.target.value)}
                 placeholder="2500"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -423,7 +423,7 @@ export function NutritionPage() {
                 value={targetProtein}
                 onChange={(event) => setTargetProtein(event.target.value)}
                 placeholder="180"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -435,7 +435,7 @@ export function NutritionPage() {
                 value={targetCarbs}
                 onChange={(event) => setTargetCarbs(event.target.value)}
                 placeholder="Optional"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
 
@@ -447,7 +447,7 @@ export function NutritionPage() {
                 value={targetFat}
                 onChange={(event) => setTargetFat(event.target.value)}
                 placeholder="Optional"
-                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
           </div>

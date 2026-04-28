@@ -1,4 +1,4 @@
-import { Dumbbell, Play, Plus, Star } from 'lucide-react'
+import { Archive, Dumbbell, Pencil, Play, Plus, Save, Star, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
@@ -15,6 +15,12 @@ import {
   usePlannedExercises,
   useSetActiveWorkoutProgram,
   useWorkoutDays,
+  useArchiveWorkoutProgram,
+  useDeletePlannedExercise,
+  useDeleteWorkoutDay,
+  useUpdatePlannedExercise,
+  useUpdateWorkoutDay,
+  useUpdateWorkoutProgram,
   useWorkoutPrograms
 } from './hooks/useWorkouts'
 import {
@@ -58,6 +64,12 @@ export function WorkoutsPage() {
   const exercisesQuery = useExercises()
   const createExercise = useCreateExercise()
   const addPlannedExercise = useAddPlannedExercise()
+  const updateProgram = useUpdateWorkoutProgram()
+  const archiveProgram = useArchiveWorkoutProgram()
+  const updateDay = useUpdateWorkoutDay()
+  const deleteDay = useDeleteWorkoutDay()
+  const updatePlannedExercise = useUpdatePlannedExercise()
+  const deletePlannedExercise = useDeletePlannedExercise()
   const startSession = useStartWorkoutSession()
   const sessionsQuery = useWorkoutSessions()
 
@@ -78,6 +90,30 @@ export function WorkoutsPage() {
 
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null)
   const [activeSessionDay, setActiveSessionDay] = useState<WorkoutDay | null>(null)
+
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null)
+  const [editingProgramName, setEditingProgramName] = useState('')
+  const [editingProgramDescription, setEditingProgramDescription] = useState('')
+  const [editingProgramRotationLength, setEditingProgramRotationLength] = useState('8')
+
+  const [editingDayId, setEditingDayId] = useState<string | null>(null)
+  const [editingDayNumber, setEditingDayNumber] = useState('1')
+  const [editingDayName, setEditingDayName] = useState('')
+  const [editingDayNotes, setEditingDayNotes] = useState('')
+  const [editingDayIsRestDay, setEditingDayIsRestDay] = useState(false)
+
+  const [editingPlannedExerciseId, setEditingPlannedExerciseId] = useState<string | null>(null)
+  const [editingPlannedSortOrder, setEditingPlannedSortOrder] = useState('1')
+  const [editingPlannedSetType, setEditingPlannedSetType] = useState<ExerciseSetType>('straight')
+  const [editingPlannedSets, setEditingPlannedSets] = useState('3')
+  const [editingPlannedMinReps, setEditingPlannedMinReps] = useState('')
+  const [editingPlannedMaxReps, setEditingPlannedMaxReps] = useState('')
+  const [editingPlannedRestSeconds, setEditingPlannedRestSeconds] = useState('')
+  const [editingPlannedTargetRpe, setEditingPlannedTargetRpe] = useState('')
+  const [editingPlannedBackoffPercent, setEditingPlannedBackoffPercent] = useState('')
+  const [editingPlannedNotes, setEditingPlannedNotes] = useState('')
+  const [editingPlannedProgressionRule, setEditingPlannedProgressionRule] = useState('')
+  const [editingPlannedDeloadRule, setEditingPlannedDeloadRule] = useState('')
 
   const [programName, setProgramName] = useState('')
   const [programDescription, setProgramDescription] = useState('')
@@ -116,6 +152,235 @@ export function WorkoutsPage() {
     daysQuery.refetch()
     plannedExercisesQuery.refetch()
     sessionsQuery.refetch()
+  }
+
+  function startEditingProgram() {
+    if (!currentProgram) {
+      return
+    }
+
+    setEditingProgramId(currentProgram.id)
+    setEditingProgramName(currentProgram.name)
+    setEditingProgramDescription(currentProgram.description ?? '')
+    setEditingProgramRotationLength(String(currentProgram.rotation_length_days))
+  }
+
+  function cancelEditingProgram() {
+    setEditingProgramId(null)
+    setEditingProgramName('')
+    setEditingProgramDescription('')
+    setEditingProgramRotationLength('8')
+  }
+
+  async function handleUpdateProgram(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!editingProgramId) {
+      return
+    }
+
+    const rotationLength = integerFromInput(editingProgramRotationLength, 8)
+
+    if (!editingProgramName.trim()) {
+      setErrorMessage('Program name is required.')
+      return
+    }
+
+    try {
+      await updateProgram.mutateAsync({
+        programId: editingProgramId,
+        name: editingProgramName,
+        description: editingProgramDescription,
+        rotationLengthDays: rotationLength
+      })
+
+      cancelEditingProgram()
+      setStatusMessage('Program updated.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not update program.')
+    }
+  }
+
+  async function handleArchiveProgram() {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!currentProgramId) {
+      return
+    }
+
+    const confirmed = window.confirm('Archive this program? It will be hidden from your active program list.')
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await archiveProgram.mutateAsync(currentProgramId)
+      setSelectedProgramId(null)
+      setStatusMessage('Program archived.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not archive program.')
+    }
+  }
+
+  function startEditingDay(day: WorkoutDay) {
+    setEditingDayId(day.id)
+    setEditingDayNumber(String(day.day_number))
+    setEditingDayName(day.name)
+    setEditingDayNotes(day.notes ?? '')
+    setEditingDayIsRestDay(day.is_rest_day)
+  }
+
+  function cancelEditingDay() {
+    setEditingDayId(null)
+    setEditingDayNumber('1')
+    setEditingDayName('')
+    setEditingDayNotes('')
+    setEditingDayIsRestDay(false)
+  }
+
+  async function handleUpdateDay(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!editingDayId) {
+      return
+    }
+
+    if (!editingDayName.trim()) {
+      setErrorMessage('Workout day name is required.')
+      return
+    }
+
+    try {
+      await updateDay.mutateAsync({
+        dayId: editingDayId,
+        dayNumber: integerFromInput(editingDayNumber, 1),
+        name: editingDayName,
+        notes: editingDayNotes,
+        isRestDay: editingDayIsRestDay
+      })
+
+      cancelEditingDay()
+      setStatusMessage('Workout day updated.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not update workout day.')
+    }
+  }
+
+  async function handleDeleteDay(dayId: string) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const confirmed = window.confirm('Delete this workout day? Its planned exercises will be hidden with it.')
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await deleteDay.mutateAsync(dayId)
+      setStatusMessage('Workout day deleted.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not delete workout day.')
+    }
+  }
+
+  function startEditingPlannedExercise(plannedExercise: {
+    id: string
+    sort_order: number
+    set_type: ExerciseSetType
+    planned_sets: number
+    min_reps: number | null
+    max_reps: number | null
+    rest_seconds: number | null
+    target_rpe: number | null
+    backoff_percent: number | null
+    notes: string | null
+    progression_rule: string | null
+    deload_rule: string | null
+  }) {
+    setEditingPlannedExerciseId(plannedExercise.id)
+    setEditingPlannedSortOrder(String(plannedExercise.sort_order))
+    setEditingPlannedSetType(plannedExercise.set_type)
+    setEditingPlannedSets(String(plannedExercise.planned_sets))
+    setEditingPlannedMinReps(plannedExercise.min_reps?.toString() ?? '')
+    setEditingPlannedMaxReps(plannedExercise.max_reps?.toString() ?? '')
+    setEditingPlannedRestSeconds(plannedExercise.rest_seconds?.toString() ?? '')
+    setEditingPlannedTargetRpe(plannedExercise.target_rpe?.toString() ?? '')
+    setEditingPlannedBackoffPercent(plannedExercise.backoff_percent?.toString() ?? '')
+    setEditingPlannedNotes(plannedExercise.notes ?? '')
+    setEditingPlannedProgressionRule(plannedExercise.progression_rule ?? '')
+    setEditingPlannedDeloadRule(plannedExercise.deload_rule ?? '')
+  }
+
+  function cancelEditingPlannedExercise() {
+    setEditingPlannedExerciseId(null)
+    setEditingPlannedSortOrder('1')
+    setEditingPlannedSetType('straight')
+    setEditingPlannedSets('3')
+    setEditingPlannedMinReps('')
+    setEditingPlannedMaxReps('')
+    setEditingPlannedRestSeconds('')
+    setEditingPlannedTargetRpe('')
+    setEditingPlannedBackoffPercent('')
+    setEditingPlannedNotes('')
+    setEditingPlannedProgressionRule('')
+    setEditingPlannedDeloadRule('')
+  }
+
+  async function handleUpdatePlannedExercise(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!editingPlannedExerciseId) {
+      return
+    }
+
+    try {
+      await updatePlannedExercise.mutateAsync({
+        plannedExerciseId: editingPlannedExerciseId,
+        sortOrder: integerFromInput(editingPlannedSortOrder, 1),
+        setType: editingPlannedSetType,
+        plannedSets: integerFromInput(editingPlannedSets, 3),
+        minReps: optionalNumberFromInput(editingPlannedMinReps),
+        maxReps: optionalNumberFromInput(editingPlannedMaxReps),
+        restSeconds: optionalNumberFromInput(editingPlannedRestSeconds),
+        targetRpe: optionalNumberFromInput(editingPlannedTargetRpe),
+        backoffPercent: optionalNumberFromInput(editingPlannedBackoffPercent),
+        notes: editingPlannedNotes,
+        progressionRule: editingPlannedProgressionRule,
+        deloadRule: editingPlannedDeloadRule
+      })
+
+      cancelEditingPlannedExercise()
+      setStatusMessage('Planned exercise updated.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not update planned exercise.')
+    }
+  }
+
+  async function handleDeletePlannedExercise(plannedExerciseId: string) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const confirmed = window.confirm('Remove this exercise from the workout day?')
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await deletePlannedExercise.mutateAsync(plannedExerciseId)
+      setStatusMessage('Planned exercise removed.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not remove planned exercise.')
+    }
   }
 
   async function handleStartWorkout(day: WorkoutDay) {
@@ -352,6 +617,81 @@ export function WorkoutsPage() {
           </p>
         )}
 
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={startEditingProgram}
+            disabled={!currentProgram}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+          >
+            <Pencil className="size-4" />
+            Edit program
+          </button>
+
+          <button
+            type="button"
+            onClick={handleArchiveProgram}
+            disabled={!currentProgramId || archiveProgram.isPending}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
+          >
+            <Archive className="size-4" />
+            Archive
+          </button>
+        </div>
+
+        {editingProgramId ? (
+          <form onSubmit={handleUpdateProgram} className="mt-4 grid gap-4 rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold">Program name</span>
+              <input
+                value={editingProgramName}
+                onChange={(event) => setEditingProgramName(event.target.value)}
+                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold">Rotation length (days)</span>
+              <input
+                type="number"
+                value={editingProgramRotationLength}
+                onChange={(event) => setEditingProgramRotationLength(event.target.value)}
+                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold">Description</span>
+              <textarea
+                value={editingProgramDescription}
+                onChange={(event) => setEditingProgramDescription(event.target.value)}
+                rows={3}
+                className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+              />
+            </label>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                type="submit"
+                disabled={updateProgram.isPending}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                <Save className="size-4" />
+                Save
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelEditingProgram}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-800"
+              >
+                <X className="size-4" />
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : null}
+
         <div className="mt-4 grid gap-3">
           {programs.map((program) => (
             <button
@@ -359,8 +699,8 @@ export function WorkoutsPage() {
               type="button"
               onClick={() => setSelectedProgramId(program.id)}
               className={`rounded-xl border p-4 text-left transition ${currentProgramId === program.id
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-                  : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900'
+                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+                : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900'
                 }`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -449,7 +789,7 @@ export function WorkoutsPage() {
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm font-semibold">Rotation length</span>
+            <span className="text-sm font-semibold">Rotation length (days)</span>
             <input
               type="number"
               inputMode="numeric"
@@ -488,7 +828,7 @@ export function WorkoutsPage() {
         <h2 className="text-xl font-bold">Create workout day</h2>
 
         <div className="mt-5 grid gap-4">
-          <div className="grid grid-cols-[90px_1fr] gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[90px_1fr]">
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Day</span>
               <input
@@ -559,7 +899,7 @@ export function WorkoutsPage() {
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Muscle group</span>
               <input
@@ -642,7 +982,7 @@ export function WorkoutsPage() {
             </select>
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Order</span>
               <input
@@ -783,6 +1123,7 @@ export function WorkoutsPage() {
         <div className="mt-4 grid gap-4">
           {days.map((day) => {
             const dayPlannedExercises = getPlannedExercisesForDay(day.id, plannedExercises)
+            const isEditingThisDay = editingDayId === day.id
 
             return (
               <div key={day.id} className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
@@ -803,31 +1144,281 @@ export function WorkoutsPage() {
                   ) : null}
                 </div>
 
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => startEditingDay(day)}
+                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                  >
+                    <Pencil className="size-4" />
+                    Edit day
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDay(day.id)}
+                    disabled={deleteDay.isPending}
+                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="size-4" />
+                    Delete
+                  </button>
+                </div>
+
+                {isEditingThisDay ? (
+                  <form onSubmit={handleUpdateDay} className="mt-4 grid gap-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[90px_1fr]">
+                      <label className="grid min-w-0 gap-2">
+                        <span className="text-sm font-semibold">Day</span>
+                        <input
+                          type="number"
+                          value={editingDayNumber}
+                          onChange={(event) => setEditingDayNumber(event.target.value)}
+                          className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                        />
+                      </label>
+
+                      <label className="grid min-w-0 gap-2">
+                        <span className="text-sm font-semibold">Name</span>
+                        <input
+                          value={editingDayName}
+                          onChange={(event) => setEditingDayName(event.target.value)}
+                          className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 dark:border-neutral-700 dark:bg-neutral-950">
+                      <input
+                        type="checkbox"
+                        checked={editingDayIsRestDay}
+                        onChange={(event) => setEditingDayIsRestDay(event.target.checked)}
+                      />
+                      <span className="text-sm font-semibold">Rest day</span>
+                    </label>
+
+                    <label className="grid gap-2">
+                      <span className="text-sm font-semibold">Notes</span>
+                      <textarea
+                        value={editingDayNotes}
+                        onChange={(event) => setEditingDayNotes(event.target.value)}
+                        rows={3}
+                        className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <button
+                        type="submit"
+                        disabled={updateDay.isPending}
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        <Save className="size-4" />
+                        Save
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={cancelEditingDay}
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                      >
+                        <X className="size-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+
                 {dayPlannedExercises.length > 0 ? (
                   <div className="mt-4 grid gap-3">
-                    {dayPlannedExercises.map((plannedExercise) => (
-                      <div key={plannedExercise.id} className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
-                        <p className="font-semibold">
-                          {plannedExercise.sort_order}. {getExerciseName(plannedExercise.exercise_id, exercises)}
-                        </p>
-                        <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
-                          {plannedExercise.planned_sets} sets
-                          {plannedExercise.min_reps && plannedExercise.max_reps
-                            ? ` x ${plannedExercise.min_reps}-${plannedExercise.max_reps} reps`
-                            : ''}
-                          {plannedExercise.target_rpe ? `, RPE ${plannedExercise.target_rpe}` : ''}
-                          {plannedExercise.rest_seconds ? `, ${plannedExercise.rest_seconds}s rest` : ''}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                          {plannedExercise.set_type.replaceAll('_', ' ')}
-                        </p>
-                        {plannedExercise.notes ? (
-                          <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
-                            {plannedExercise.notes}
+                    {dayPlannedExercises.map((plannedExercise) => {
+                      const isEditingThisExercise = editingPlannedExerciseId === plannedExercise.id
+
+                      return (
+                        <div key={plannedExercise.id} className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+                          <p className="font-semibold">
+                            {plannedExercise.sort_order}. {getExerciseName(plannedExercise.exercise_id, exercises)}
                           </p>
-                        ) : null}
-                      </div>
-                    ))}
+                          <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
+                            {plannedExercise.planned_sets} sets
+                            {plannedExercise.min_reps && plannedExercise.max_reps
+                              ? ` x ${plannedExercise.min_reps}-${plannedExercise.max_reps} reps`
+                              : ''}
+                            {plannedExercise.target_rpe ? `, RPE ${plannedExercise.target_rpe}` : ''}
+                            {plannedExercise.rest_seconds ? `, ${plannedExercise.rest_seconds}s rest` : ''}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                            {plannedExercise.set_type.replaceAll('_', ' ')}
+                          </p>
+                          {plannedExercise.notes ? (
+                            <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+                              {plannedExercise.notes}
+                            </p>
+                          ) : null}
+
+                          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditingPlannedExercise(plannedExercise)}
+                              className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                            >
+                              <Pencil className="size-4" />
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePlannedExercise(plannedExercise.id)}
+                              disabled={deletePlannedExercise.isPending}
+                              className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-red-950/30"
+                            >
+                              <Trash2 className="size-4" />
+                              Remove
+                            </button>
+                          </div>
+
+                          {isEditingThisExercise ? (
+                            <form onSubmit={handleUpdatePlannedExercise} className="mt-4 grid gap-4 rounded-xl border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Order</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedSortOrder}
+                                    onChange={(event) => setEditingPlannedSortOrder(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Set type</span>
+                                  <select
+                                    value={editingPlannedSetType}
+                                    onChange={(event) => setEditingPlannedSetType(event.target.value as ExerciseSetType)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  >
+                                    <option value="straight">Straight</option>
+                                    <option value="top_set_backoff">Top set/backoff</option>
+                                    <option value="warmup">Warmup</option>
+                                    <option value="custom">Custom</option>
+                                  </select>
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Sets</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedSets}
+                                    onChange={(event) => setEditingPlannedSets(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">RPE target</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedTargetRpe}
+                                    onChange={(event) => setEditingPlannedTargetRpe(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Min reps</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedMinReps}
+                                    onChange={(event) => setEditingPlannedMinReps(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Max reps</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedMaxReps}
+                                    onChange={(event) => setEditingPlannedMaxReps(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Rest seconds</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedRestSeconds}
+                                    onChange={(event) => setEditingPlannedRestSeconds(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+
+                                <label className="grid min-w-0 gap-2">
+                                  <span className="text-sm font-semibold">Backoff percent</span>
+                                  <input
+                                    type="number"
+                                    value={editingPlannedBackoffPercent}
+                                    onChange={(event) => setEditingPlannedBackoffPercent(event.target.value)}
+                                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                  />
+                                </label>
+                              </div>
+
+                              <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Progression rule</span>
+                                <textarea
+                                  value={editingPlannedProgressionRule}
+                                  onChange={(event) => setEditingPlannedProgressionRule(event.target.value)}
+                                  rows={2}
+                                  className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                              </label>
+
+                              <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Deload rule</span>
+                                <textarea
+                                  value={editingPlannedDeloadRule}
+                                  onChange={(event) => setEditingPlannedDeloadRule(event.target.value)}
+                                  rows={3}
+                                  className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                              </label>
+
+                              <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Notes</span>
+                                <textarea
+                                  value={editingPlannedNotes}
+                                  onChange={(event) => setEditingPlannedNotes(event.target.value)}
+                                  rows={3}
+                                  className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                              </label>
+
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <button
+                                  type="submit"
+                                  disabled={updatePlannedExercise.isPending}
+                                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                  <Save className="size-4" />
+                                  Save
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={cancelEditingPlannedExercise}
+                                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-800"
+                                >
+                                  <X className="size-4" />
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">

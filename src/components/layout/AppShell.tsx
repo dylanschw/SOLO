@@ -24,7 +24,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="flex-1 px-5 pb-24 pt-5">
+        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-24 pt-5 sm:px-5">
           <Outlet />
         </main>
 
