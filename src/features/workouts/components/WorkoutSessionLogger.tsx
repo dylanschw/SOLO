@@ -1,6 +1,6 @@
-import { CheckCircle, Clock, Dumbbell, Plus, Timer } from 'lucide-react'
+import { CheckCircle, ChevronLeft, ChevronRight, Clock, Dumbbell, Plus, Timer } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { buildRecommendationForExercise } from '../lib/progression'
-import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { WeightUnit } from '../../../lib/supabase/types'
 import { useProfile } from '../../profile/hooks/useProfile'
@@ -64,6 +64,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const [notes, setNotes] = useState('')
     const [sessionNotes, setSessionNotes] = useState('')
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [restSecondsRemaining, setRestSecondsRemaining] = useState(0)
 
     const activePlannedExercise = plannedExercises[activeExerciseIndex] ?? null
     const activeLoggedSets = activePlannedExercise
@@ -85,6 +86,41 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
             ).length,
         [loggedSets, plannedExercises]
     )
+
+    const totalExercises = plannedExercises.length
+    const activeExerciseNumber = activeExerciseIndex + 1
+    const canGoPrevious = activeExerciseIndex > 0
+    const canGoNext = activeExerciseIndex < totalExercises - 1
+
+    const restTimerLabel = `${Math.floor(restSecondsRemaining / 60)}:${String(
+        restSecondsRemaining % 60
+    ).padStart(2, '0')}`
+
+    useEffect(() => {
+        if (restSecondsRemaining <= 0) {
+            return
+        }
+
+        const timer = window.setTimeout(() => {
+            setRestSecondsRemaining((currentSeconds) => Math.max(currentSeconds - 1, 0))
+        }, 1000)
+
+        return () => window.clearTimeout(timer)
+    }, [restSecondsRemaining])
+
+    function goToPreviousExercise() {
+        setActiveExerciseIndex((currentIndex) => Math.max(currentIndex - 1, 0))
+    }
+
+    function goToNextExercise() {
+        setActiveExerciseIndex((currentIndex) =>
+            Math.min(currentIndex + 1, Math.max(totalExercises - 1, 0))
+        )
+    }
+
+    function startRestTimer(seconds: number | null) {
+        setRestSecondsRemaining(seconds && seconds > 0 ? seconds : 120)
+    }
 
     async function handleLogSet(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -154,6 +190,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         setWeight('')
         setReps('')
         setNotes('')
+        startRestTimer(activePlannedExercise.rest_seconds)
     }
 
     async function handleCompleteWorkout() {
@@ -215,27 +252,59 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                 </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-2">
-                {plannedExercises.map((plannedExercise, index) => (
+            <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="flex items-center justify-between gap-3">
                     <button
-                        key={plannedExercise.id}
                         type="button"
-                        onClick={() => setActiveExerciseIndex(index)}
-                        className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${index === activeExerciseIndex
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                            : 'border-stone-200 bg-white text-stone-600 dark:border-neutral-800 dark:bg-neutral-950 dark:text-stone-300'
-                            }`}
+                        onClick={goToPreviousExercise}
+                        disabled={!canGoPrevious}
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
                     >
-                        {index + 1}. {getExerciseNameForPlannedExercise(plannedExercise, exercises)}
+                        <ChevronLeft className="size-4" />
+                        Prev
                     </button>
-                ))}
+
+                    <div className="min-w-0 text-center">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                            Exercise {totalExercises === 0 ? 0 : activeExerciseNumber} of {totalExercises}
+                        </p>
+                        <p className="mt-1 truncate text-sm font-bold text-stone-900 dark:text-stone-50">
+                            {activePlannedExercise
+                                ? getExerciseNameForPlannedExercise(activePlannedExercise, exercises)
+                                : 'No exercise selected'}
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={goToNextExercise}
+                        disabled={!canGoNext}
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                    >
+                        Next
+                        <ChevronRight className="size-4" />
+                    </button>
+                </div>
             </div>
 
             {activePlannedExercise ? (
                 <article className="mt-4 rounded-xl border border-stone-200 p-4 dark:border-neutral-800">
-                    <h3 className="text-lg font-bold">
-                        {getExerciseNameForPlannedExercise(activePlannedExercise, exercises)}
-                    </h3>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                Exercise {activeExerciseNumber} of {totalExercises}
+                            </p>
+                            <h3 className="mt-1 text-lg font-bold">
+                                {getExerciseNameForPlannedExercise(activePlannedExercise, exercises)}
+                            </h3>
+                        </div>
+
+                        {activeLoggedSets.length >= activePlannedExercise.planned_sets ? (
+                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
+                                Sets done
+                            </span>
+                        ) : null}
+                    </div>
 
                     <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
                         Target: {activePlannedExercise.planned_sets} sets
@@ -247,19 +316,49 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                     </p>
 
                     {activePlannedExercise.deload_rule ? (
-                        <p className="mt-2 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
-                            Deload rule: {activePlannedExercise.deload_rule}
-                        </p>
+                        <details className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                            <summary className="cursor-pointer font-semibold">Deload rule</summary>
+                            <p className="mt-2">{activePlannedExercise.deload_rule}</p>
+                        </details>
                     ) : null}
 
                     <div className="mt-3 rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-300">
-                            <Timer className="size-4" />
-                            Rest timer placeholder
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-300">
+                                <Timer className="size-4" />
+                                Rest timer
+                            </div>
+
+                            <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-stone-900 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-50 dark:ring-neutral-800">
+                                {restSecondsRemaining > 0 ? restTimerLabel : 'Ready'}
+                            </span>
                         </div>
-                        <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                            The next milestone will add a real countdown timer and offline queue.
-                        </p>
+
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => startRestTimer(60)}
+                                className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                            >
+                                1:00
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => startRestTimer(activePlannedExercise.rest_seconds)}
+                                className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                            >
+                                Target
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setRestSecondsRemaining(0)}
+                                className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                            >
+                                Clear
+                            </button>
+                        </div>
                     </div>
 
                     <form onSubmit={handleLogSet} className="mt-4 grid gap-4">
@@ -353,7 +452,16 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                     This workout day has no exercises yet.
                 </p>
             )}
-
+            {activeLoggedSets.length > 0 && canGoNext ? (
+                <button
+                    type="button"
+                    onClick={goToNextExercise}
+                    className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                >
+                    Next exercise
+                    <ChevronRight className="size-4" />
+                </button>
+            ) : null}
             {activeRecommendation && activeRecommendation.kind !== 'no_data' ? (
                 <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:ring-emerald-900">
                     <p className="font-bold">{activeRecommendation.title}</p>
