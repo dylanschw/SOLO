@@ -101,6 +101,18 @@ export function WorkoutsPage() {
   const exercises = exercisesQuery.data ?? []
   const recentSessions = sessionsQuery.data ?? []
 
+  const inProgressSessions = recentSessions.filter((session) => session.status === 'in_progress')
+
+  const currentProgramInProgressSessions = inProgressSessions.filter(
+    (session) => session.program_id === currentProgramId
+  )
+
+  const currentResumeSession = currentProgramInProgressSessions[0] ?? null
+
+  const currentResumeDay = currentResumeSession
+    ? days.find((day) => day.id === currentResumeSession.workout_day_id) ?? null
+    : null
+
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null)
   const [activeSessionDay, setActiveSessionDay] = useState<WorkoutDay | null>(null)
   const [activeSection, setActiveSection] = useState<WorkoutPageSection>('start')
@@ -407,6 +419,23 @@ export function WorkoutsPage() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not remove planned exercise.')
     }
+  }
+
+  function handleResumeWorkout(session: WorkoutSession) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const workoutDay = days.find((day) => day.id === session.workout_day_id) ?? null
+
+    if (!workoutDay) {
+      setErrorMessage('Could not find the workout day for this session. Try selecting the matching program first.')
+      return
+    }
+
+    setActiveSection('start')
+    setActiveSession(session)
+    setActiveSessionDay(workoutDay)
+    setStatusMessage('Workout resumed.')
   }
 
   async function handleStartWorkout(day: WorkoutDay) {
@@ -783,8 +812,46 @@ export function WorkoutsPage() {
             ) : null}
           </article>
 
+          {currentResumeSession ? (
+            <article className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900 dark:bg-emerald-950/30">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    Workout in progress
+                  </p>
+                  <h2 className="mt-1 text-xl font-bold text-stone-950 dark:text-stone-50">
+                    {currentResumeDay ? currentResumeDay.name : 'Saved workout session'}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                    Started{' '}
+                    {currentResumeSession.started_at
+                      ? new Date(currentResumeSession.started_at).toLocaleString()
+                      : currentResumeSession.session_date}
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-neutral-950 dark:text-emerald-300 dark:ring-emerald-900">
+                  Active
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleResumeWorkout(currentResumeSession)}
+                className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Resume workout
+              </button>
+            </article>
+          ) : null}
+
           <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
             <h2 className="text-xl font-bold">Start workout</h2>
+            {currentResumeSession ? (
+              <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                Finish or resume your current workout before starting another workout from this program.
+              </p>
+            ) : null}
 
             {days.filter((day) => !day.is_rest_day).length === 0 ? (
               <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
@@ -800,7 +867,7 @@ export function WorkoutsPage() {
                     key={day.id}
                     type="button"
                     onClick={() => handleStartWorkout(day)}
-                    disabled={startSession.isPending}
+                    disabled={startSession.isPending || Boolean(currentResumeSession)}
                     className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
                   >
                     <span className="font-semibold">
