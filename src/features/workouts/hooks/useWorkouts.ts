@@ -2,19 +2,28 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../auth/hooks/useAuth'
 import {
     addPlannedExercise,
+    archiveWorkoutProgram,
     createExercise,
     createWorkoutDay,
     createWorkoutProgram,
+    deletePlannedExercise,
+    deleteWorkoutDay,
     getActiveWorkoutProgram,
     listExercises,
     listPlannedExercises,
     listWorkoutDays,
     listWorkoutPrograms,
     setActiveWorkoutProgram,
+    updatePlannedExercise,
+    updateWorkoutDay,
+    updateWorkoutProgram,
     type AddPlannedExerciseInput,
     type CreateExerciseInput,
     type CreateProgramInput,
-    type CreateWorkoutDayInput
+    type CreateWorkoutDayInput,
+    type UpdatePlannedExerciseInput,
+    type UpdateProgramInput,
+    type UpdateWorkoutDayInput
 } from '../lib/workouts'
 
 export function useWorkoutPrograms() {
@@ -194,6 +203,125 @@ export function useAddPlannedExercise() {
                 ...input,
                 userId: user.id
             })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['planned-exercises', user?.id] })
+        }
+    })
+}
+
+export function useUpdateWorkoutProgram() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateProgramInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update workout program without a signed-in user')
+            }
+
+            return updateWorkoutProgram({
+                ...input,
+                userId: user.id
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-programs', user?.id] })
+            queryClient.invalidateQueries({ queryKey: ['active-workout-program', user?.id] })
+        }
+    })
+}
+
+export function useArchiveWorkoutProgram() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (programId: string) => {
+            if (!user) {
+                throw new Error('Cannot archive workout program without a signed-in user')
+            }
+
+            return archiveWorkoutProgram(user.id, programId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-programs', user?.id] })
+            queryClient.invalidateQueries({ queryKey: ['active-workout-program', user?.id] })
+        }
+    })
+}
+
+export function useUpdateWorkoutDay() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateWorkoutDayInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update workout day without a signed-in user')
+            }
+
+            return updateWorkoutDay({
+                ...input,
+                userId: user.id
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-days', user?.id] })
+        }
+    })
+}
+
+export function useDeleteWorkoutDay() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (dayId: string) => {
+            if (!user) {
+                throw new Error('Cannot delete workout day without a signed-in user')
+            }
+
+            return deleteWorkoutDay(user.id, dayId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-days', user?.id] })
+        }
+    })
+}
+
+export function useUpdatePlannedExercise() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdatePlannedExerciseInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update planned exercise without a signed-in user')
+            }
+
+            return updatePlannedExercise({
+                ...input,
+                userId: user.id
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['planned-exercises', user?.id] })
+        }
+    })
+}
+
+export function useDeletePlannedExercise() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (plannedExerciseId: string) => {
+            if (!user) {
+                throw new Error('Cannot delete planned exercise without a signed-in user')
+            }
+
+            return deletePlannedExercise(user.id, plannedExerciseId)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['planned-exercises', user?.id] })

@@ -47,6 +47,39 @@ export type AddPlannedExerciseInput = {
     deloadRule?: string | null
 }
 
+export type UpdateProgramInput = {
+    userId: string
+    programId: string
+    name: string
+    description?: string | null
+    rotationLengthDays: number
+}
+
+export type UpdateWorkoutDayInput = {
+    userId: string
+    dayId: string
+    dayNumber: number
+    name: string
+    notes?: string | null
+    isRestDay: boolean
+}
+
+export type UpdatePlannedExerciseInput = {
+    userId: string
+    plannedExerciseId: string
+    sortOrder: number
+    setType: ExerciseSetType
+    plannedSets: number
+    minReps?: number | null
+    maxReps?: number | null
+    restSeconds?: number | null
+    targetRpe?: number | null
+    backoffPercent?: number | null
+    notes?: string | null
+    progressionRule?: string | null
+    deloadRule?: string | null
+}
+
 function createClientId() {
     return crypto.randomUUID()
 }
@@ -269,6 +302,131 @@ export async function addPlannedExercise(input: AddPlannedExerciseInput) {
             client_id: createClientId(),
             sync_status: 'synced'
         })
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function updateWorkoutProgram(input: UpdateProgramInput) {
+    const { data, error } = await supabase
+        .from('workout_programs')
+        .update({
+            name: input.name.trim(),
+            description: cleanText(input.description),
+            rotation_length_days: input.rotationLengthDays
+        })
+        .eq('id', input.programId)
+        .eq('user_id', input.userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function archiveWorkoutProgram(userId: string, programId: string) {
+    const { data, error } = await supabase
+        .from('workout_programs')
+        .update({
+            is_active: false,
+            is_archived: true,
+            deleted_at: new Date().toISOString()
+        })
+        .eq('id', programId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function updateWorkoutDay(input: UpdateWorkoutDayInput) {
+    const { data, error } = await supabase
+        .from('workout_days')
+        .update({
+            day_number: input.dayNumber,
+            name: input.name.trim(),
+            notes: cleanText(input.notes),
+            is_rest_day: input.isRestDay
+        })
+        .eq('id', input.dayId)
+        .eq('user_id', input.userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function deleteWorkoutDay(userId: string, dayId: string) {
+    const { data, error } = await supabase
+        .from('workout_days')
+        .update({
+            deleted_at: new Date().toISOString()
+        })
+        .eq('id', dayId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function updatePlannedExercise(input: UpdatePlannedExerciseInput) {
+    const { data, error } = await supabase
+        .from('planned_exercises')
+        .update({
+            sort_order: input.sortOrder,
+            set_type: input.setType,
+            planned_sets: input.plannedSets,
+            min_reps: cleanOptionalNumber(input.minReps),
+            max_reps: cleanOptionalNumber(input.maxReps),
+            rest_seconds: cleanOptionalNumber(input.restSeconds),
+            target_rpe: cleanOptionalNumber(input.targetRpe),
+            backoff_percent: cleanOptionalNumber(input.backoffPercent),
+            notes: cleanText(input.notes),
+            progression_rule: cleanText(input.progressionRule),
+            deload_rule: cleanText(input.deloadRule)
+        })
+        .eq('id', input.plannedExerciseId)
+        .eq('user_id', input.userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function deletePlannedExercise(userId: string, plannedExerciseId: string) {
+    const { data, error } = await supabase
+        .from('planned_exercises')
+        .update({
+            deleted_at: new Date().toISOString()
+        })
+        .eq('id', plannedExerciseId)
+        .eq('user_id', userId)
         .select()
         .single()
 
