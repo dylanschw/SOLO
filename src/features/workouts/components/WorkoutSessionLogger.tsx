@@ -5,6 +5,10 @@ import {
     Clock,
     Dumbbell,
     History,
+    Pencil,
+    Save,
+    Trash2,
+    X,
     Plus,
     Sparkles,
     Timer
@@ -20,6 +24,8 @@ import {
     useAllWorkoutSets,
     useCompleteWorkoutSession,
     useCreateWorkoutSet,
+    useDeleteWorkoutSet,
+    useUpdateWorkoutSet,
     useWorkoutSets
 } from '../hooks/useWorkoutSessions';
 import {
@@ -64,7 +70,8 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const createSet = useCreateWorkoutSet();
     const completeSession = useCompleteWorkoutSession();
     const offlineSync = useOfflineWorkoutSync(session.id);
-
+    const updateWorkoutSet = useUpdateWorkoutSet();
+    const deleteWorkoutSet = useDeleteWorkoutSet();
     const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb';
     const exercises = exercisesQuery.data ?? [];
     const plannedExercises = plannedExercisesQuery.data ?? [];
@@ -79,6 +86,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const [sessionNotes, setSessionNotes] = useState('');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
+    const [editingSetId, setEditingSetId] = useState<string | null>(null);
+    const [editingSetWeight, setEditingSetWeight] = useState('');
+    const [editingSetReps, setEditingSetReps] = useState('');
+    const [editingSetNotes, setEditingSetNotes] = useState('');
 
     const activePlannedExercise = plannedExercises[activeExerciseIndex] ?? null;
 
@@ -198,6 +209,82 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
 
         fillSetFromHistorySet(lastExerciseSet);
     }, [activePlannedExercise?.id, lastExerciseSet]);
+
+    function startEditingSet(set: {
+        id: string;
+        weight_kg: number | null;
+        reps: number | null;
+        notes: string | null;
+    }) {
+        setEditingSetId(set.id);
+        setEditingSetWeight(
+            typeof set.weight_kg === 'number'
+                ? String(formatLoggedWeight(set.weight_kg, preferredUnit))
+                : ''
+        );
+        setEditingSetReps(typeof set.reps === 'number' ? String(set.reps) : '');
+        setEditingSetNotes(set.notes ?? '');
+    }
+
+    function cancelEditingSet() {
+        setEditingSetId(null);
+        setEditingSetWeight('');
+        setEditingSetReps('');
+        setEditingSetNotes('');
+    }
+
+    async function handleUpdateSet(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setErrorMessage(null);
+
+        if (!editingSetId) {
+            return;
+        }
+
+        const parsedWeight = editingSetWeight.trim() ? Number(editingSetWeight) : null;
+        const parsedReps = editingSetReps.trim() ? Number(editingSetReps) : null;
+
+        if (parsedWeight !== null && (!Number.isFinite(parsedWeight) || parsedWeight < 0)) {
+            setErrorMessage('Enter a valid weight.');
+            return;
+        }
+
+        if (parsedReps !== null && (!Number.isFinite(parsedReps) || parsedReps < 0)) {
+            setErrorMessage('Enter valid reps.');
+            return;
+        }
+
+        try {
+            await updateWorkoutSet.mutateAsync({
+                setId: editingSetId,
+                weight: parsedWeight,
+                weightUnit: preferredUnit,
+                reps: parsedReps,
+                rpe: null,
+                notes: editingSetNotes,
+            });
+
+            cancelEditingSet();
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not update set.');
+        }
+    }
+
+    async function handleDeleteSet(setId: string) {
+        setErrorMessage(null);
+
+        const confirmed = window.confirm('Delete this set?');
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            await deleteWorkoutSet.mutateAsync(setId);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not delete set.');
+        }
+    }
 
     async function handleLogSet(event: FormEvent<HTMLFormElement>) {
 
@@ -562,18 +649,121 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                     </form>
 
                     <div className="mt-4 grid gap-2">
-                        {activeLoggedSets.map((set) => (
-                            <div
-                                key={set.id}
-                                className="flex items-center justify-between rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900"
-                            >
-                                <span className="font-semibold">Set {set.set_number}</span>
-                                <span>
-                                    {formatLoggedWeight(set.weight_kg, preferredUnit)} x {set.reps ?? '--'} reps
-                                    {set.rpe ? ` @ RPE ${set.rpe}` : ''}
-                                </span>
-                            </div>
-                        ))}
+
+                        {activeLoggedSets.map((set) => {
+                            const isEditingThisSet = editingSetId === set.id;
+
+                            return (
+                                <div
+                                    key={set.id}
+                                    className="rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900"
+                                >
+                                    {isEditingThisSet ? (
+                                        <form onSubmit={handleUpdateSet} className="grid gap-3">
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                <label className="grid gap-2">
+                                                    <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                        Weight
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        value={editingSetWeight}
+                                                        onChange={(event) => setEditingSetWeight(event.target.value)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    />
+                                                </label>
+
+                                                <label className="grid gap-2">
+                                                    <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                        Reps
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="numeric"
+                                                        value={editingSetReps}
+                                                        onChange={(event) => setEditingSetReps(event.target.value)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    />
+                                                </label>
+                                            </div>
+
+                                            <label className="grid gap-2">
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                    Notes
+                                                </span>
+                                                <textarea
+                                                    value={editingSetNotes}
+                                                    onChange={(event) => setEditingSetNotes(event.target.value)}
+                                                    rows={2}
+                                                    className="w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                />
+                                            </label>
+
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="submit"
+                                                    disabled={updateWorkoutSet.isPending}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-60"
+                                                >
+                                                    <Save className="size-4" />
+                                                    Save
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEditingSet}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold dark:border-neutral-800"
+                                                >
+                                                    <X className="size-4" />
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="font-semibold">
+                                                    Set {set.set_number}: {formatLoggedWeight(set.weight_kg, preferredUnit)} {preferredUnit} x{' '}
+                                                    {set.reps ?? '--'}
+                                                </span>
+
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                    {set.set_type.replaceAll('_', ' ')}
+                                                </span>
+                                            </div>
+
+                                            {set.notes ? (
+                                                <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                                                    {set.notes}
+                                                </p>
+                                            ) : null}
+
+                                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startEditingSet(set)}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                                                >
+                                                    <Pencil className="size-4" />
+                                                    Edit
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSet(set.id)}
+                                                    disabled={deleteWorkoutSet.isPending}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-red-950/30"
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
                         {activeOfflineSets.map((set) => (
                             <div
                                 key={set.localId}

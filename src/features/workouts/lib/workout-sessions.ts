@@ -26,6 +26,16 @@ export type CreateWorkoutSetInput = {
     clientId?: string
 }
 
+export type UpdateWorkoutSetInput = {
+    userId: string;
+    setId: string;
+    weight: number | null;
+    weightUnit: WeightUnit;
+    reps: number | null;
+    rpe?: number | null;
+    notes?: string | null;
+};
+
 function createClientId() {
     return crypto.randomUUID()
 }
@@ -199,6 +209,48 @@ export async function listAllWorkoutSets(userId: string) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(500);
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+}
+
+export async function updateWorkoutSet(input: UpdateWorkoutSetInput) {
+    const weightKg =
+        input.weight === null ? null : convertWeight(input.weight, input.weightUnit, 'kg');
+
+    const { data, error } = await supabase
+        .from('workout_sets')
+        .update({
+            weight_kg: weightKg,
+            reps: cleanOptionalNumber(input.reps),
+            rpe: cleanOptionalNumber(input.rpe),
+            notes: cleanText(input.notes),
+        })
+        .eq('user_id', input.userId)
+        .eq('id', input.setId)
+        .select()
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+}
+
+export async function deleteWorkoutSet(userId: string, setId: string) {
+    const { data, error } = await supabase
+        .from('workout_sets')
+        .update({
+            deleted_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('id', setId)
+        .select()
+        .single();
 
     if (error) {
         throw error;

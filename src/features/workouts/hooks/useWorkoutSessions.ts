@@ -7,6 +7,9 @@ import {
     listWorkoutSets,
     listAllWorkoutSets,
     startWorkoutSession,
+    deleteWorkoutSet,
+    updateWorkoutSet,
+    type UpdateWorkoutSetInput,
     type CreateWorkoutSetInput,
     deleteWorkoutSession,
     type StartWorkoutSessionInput
@@ -136,5 +139,48 @@ export function useAllWorkoutSets() {
             return listAllWorkoutSets(user.id);
         },
         enabled: Boolean(user),
+    });
+}
+
+export function useUpdateWorkoutSet() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateWorkoutSetInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update workout set without a signed-in user');
+            }
+
+            return updateWorkoutSet({
+                ...input,
+                userId: user.id,
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-sets', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['all-workout-sets', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] });
+        },
+    });
+}
+
+export function useDeleteWorkoutSet() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (setId: string) => {
+            if (!user) {
+                throw new Error('Cannot delete workout set without a signed-in user');
+            }
+
+            return deleteWorkoutSet(user.id, setId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workout-sets', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['all-workout-sets', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] });
+        },
     });
 }
