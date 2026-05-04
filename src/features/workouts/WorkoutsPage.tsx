@@ -136,13 +136,13 @@ export function WorkoutsPage() {
   const currentResumeDay = currentResumeSession
     ? days.find((day) => day.id === currentResumeSession.workout_day_id) ?? null
     : null
-
   const [activeSection, setActiveSection] = useState<WorkoutPageSection>('start')
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null)
   const [editingProgramName, setEditingProgramName] = useState('')
   const [editingProgramDescription, setEditingProgramDescription] = useState('')
   const [editingProgramRotationLength, setEditingProgramRotationLength] = useState('8')
-
+  const [selectedEditDayId, setSelectedEditDayId] = useState('')
+  const selectedEditDay = days.find((day) => day.id === selectedEditDayId) ?? days[0] ?? null
   const [editingDayId, setEditingDayId] = useState<string | null>(null)
   const [editingDayNumber, setEditingDayNumber] = useState('1')
   const [editingDayName, setEditingDayName] = useState('')
@@ -178,6 +178,8 @@ export function WorkoutsPage() {
 
   const [selectedDayId, setSelectedDayId] = useState('')
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
+  const [pastWorkoutDayId, setPastWorkoutDayId] = useState('')
+  const [pastWorkoutDate, setPastWorkoutDate] = useState(new Date().toISOString().slice(0, 10))
   const [sortOrder, setSortOrder] = useState('1')
   const [setType, setSetType] = useState<ExerciseSetType>('straight')
   const [plannedSets, setPlannedSets] = useState('3')
@@ -486,6 +488,53 @@ export function WorkoutsPage() {
     setActiveSection('start')
     setStatusMessage('Workout resumed.')
     navigate(`/app/workouts/session/${session.id}`)
+  }
+
+  async function handleCreatePastWorkout(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!currentProgramId) {
+      setErrorMessage('Choose a program first.')
+      return
+    }
+
+    if (!pastWorkoutDayId) {
+      setErrorMessage('Choose a workout day.')
+      return
+    }
+
+    if (!pastWorkoutDate) {
+      setErrorMessage('Choose a workout date.')
+      return
+    }
+
+    const workoutDay = days.find((day) => day.id === pastWorkoutDayId) ?? null
+
+    if (!workoutDay) {
+      setErrorMessage('Could not find that workout day.')
+      return
+    }
+
+    if (workoutDay.is_rest_day) {
+      setErrorMessage('Choose a training day, not a rest day.')
+      return
+    }
+
+    try {
+      const session = await startSession.mutateAsync({
+        programId: currentProgramId,
+        workoutDayId: pastWorkoutDayId,
+        sessionDate: pastWorkoutDate,
+        startedAt: new Date(`${pastWorkoutDate}T12:00:00`).toISOString()
+      })
+
+      setStatusMessage('Past workout created. Log the sets, then complete it.')
+      navigate(`/app/workouts/session/${session.id}`)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not create past workout.')
+    }
   }
 
   async function handleStartWorkout(day: WorkoutDay) {
@@ -926,6 +975,56 @@ export function WorkoutsPage() {
                 ))}
             </div>
           </article>
+          <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+            <h2 className="text-xl font-bold">Add past workout</h2>
+            <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+              Use this if you already trained and want to enter the workout after the fact.
+            </p>
+
+            <form onSubmit={handleCreatePastWorkout} className="mt-5 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Workout date</span>
+                <input
+                  type="date"
+                  value={pastWorkoutDate}
+                  onChange={(event) => setPastWorkoutDate(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Workout day</span>
+                <select
+                  value={pastWorkoutDayId}
+                  onChange={(event) => setPastWorkoutDayId(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                >
+                  <option value="">Choose workout day</option>
+                  {days
+                    .filter((day) => !day.is_rest_day)
+                    .map((day) => (
+                      <option key={day.id} value={day.id}>
+                        Day {day.day_number}: {day.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <button
+                type="submit"
+                disabled={startSession.isPending || Boolean(currentResumeSession)}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+              >
+                {startSession.isPending ? 'Creating...' : 'Create past workout'}
+              </button>
+
+              {currentResumeSession ? (
+                <p className="text-sm leading-6 text-stone-500 dark:text-stone-400">
+                  Finish or end your current active workout before creating another workout entry.
+                </p>
+              ) : null}
+            </form>
+          </article>
         </>
       ) : null}
 
@@ -1293,9 +1392,28 @@ export function WorkoutsPage() {
                 No days yet. Create Day 1, Day 2, and so on above.
               </p>
             ) : null}
-
+            {days.length > 0 ? (
+              <label className="mt-4 grid gap-2">
+                <span className="text-sm font-semibold">Choose day to edit</span>
+                <select
+                  value={selectedEditDay?.id ?? ''}
+                  onChange={(event) => {
+                    setSelectedEditDayId(event.target.value)
+                    cancelEditingDay()
+                    cancelEditingPlannedExercise()
+                  }}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                >
+                  {days.map((day) => (
+                    <option key={day.id} value={day.id}>
+                      Day {day.day_number}: {day.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <div className="mt-4 grid gap-4">
-              {days.map((day) => {
+              {selectedEditDay ? [selectedEditDay].map((day) => {
                 const dayPlannedExercises = getPlannedExercisesForDay(day.id, plannedExercises)
                 const isEditingThisDay = editingDayId === day.id
 
@@ -1601,7 +1719,7 @@ export function WorkoutsPage() {
                     )}
                   </div>
                 )
-              })}
+              }) : null}
             </div>
           </article>
         ) : null

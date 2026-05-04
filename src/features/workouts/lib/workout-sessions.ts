@@ -9,6 +9,8 @@ export type StartWorkoutSessionInput = {
     userId: string
     programId: string
     workoutDayId: string
+    sessionDate?: string
+    startedAt?: string
 }
 
 export type CreateWorkoutSetInput = {
@@ -65,8 +67,8 @@ export async function startWorkoutSession(input: StartWorkoutSessionInput) {
             user_id: input.userId,
             program_id: input.programId,
             workout_day_id: input.workoutDayId,
-            session_date: todayDate(),
-            started_at: new Date().toISOString(),
+            session_date: input.sessionDate ?? todayDate(),
+            started_at: input.startedAt ?? new Date().toISOString(),
             status: 'in_progress',
             client_id: createClientId(),
             sync_status: 'synced'

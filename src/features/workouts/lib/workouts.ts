@@ -420,18 +420,56 @@ export async function updatePlannedExercise(input: UpdatePlannedExerciseInput) {
 }
 
 export async function deletePlannedExercise(userId: string, plannedExerciseId: string) {
+    const { data: plannedExercise, error: findError } = await supabase
+        .from('planned_exercises')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('id', plannedExerciseId)
+        .single()
+
+    if (findError) {
+        throw findError
+    }
+
     const { data, error } = await supabase
         .from('planned_exercises')
         .update({
             deleted_at: new Date().toISOString()
         })
-        .eq('id', plannedExerciseId)
         .eq('user_id', userId)
+        .eq('id', plannedExerciseId)
         .select()
         .single()
 
     if (error) {
         throw error
+    }
+
+    const { data: laterExercises, error: laterExercisesError } = await supabase
+        .from('planned_exercises')
+        .select('id, sort_order')
+        .eq('user_id', userId)
+        .eq('workout_day_id', plannedExercise.workout_day_id)
+        .is('deleted_at', null)
+        .gt('sort_order', plannedExercise.sort_order)
+        .order('sort_order', { ascending: true })
+
+    if (laterExercisesError) {
+        throw laterExercisesError
+    }
+
+    for (const exercise of laterExercises ?? []) {
+        const { error: reorderError } = await supabase
+            .from('planned_exercises')
+            .update({
+                sort_order: Math.max(1, exercise.sort_order - 1)
+            })
+            .eq('user_id', userId)
+            .eq('id', exercise.id)
+
+        if (reorderError) {
+            throw reorderError
+        }
     }
 
     return data
