@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase/client'
 import type { Database, LoggedSetType, WeightUnit } from '../../../lib/supabase/types'
-import { convertWeight } from '../../../lib/utils/units'
+import { convertWeightForStorage } from '../../../lib/utils/units'
 
 export type WorkoutSession = Database['public']['Tables']['workout_sessions']['Row']
 export type WorkoutSet = Database['public']['Tables']['workout_sets']['Row']
@@ -121,7 +121,7 @@ export async function listWorkoutSets(userId: string, sessionId: string | null) 
 
 export async function createWorkoutSet(input: CreateWorkoutSetInput) {
     const weightKg =
-        input.weight === null ? null : convertWeight(input.weight, input.weightUnit, 'kg')
+        input.weight === null ? null : convertWeightForStorage(input.weight, input.weightUnit, 'kg')
 
     const { data, error } = await supabase
         .from('workout_sets')
@@ -221,7 +221,7 @@ export async function listAllWorkoutSets(userId: string) {
 
 export async function updateWorkoutSet(input: UpdateWorkoutSetInput) {
     const weightKg =
-        input.weight === null ? null : convertWeight(input.weight, input.weightUnit, 'kg');
+        input.weight === null ? null : convertWeightForStorage(input.weight, input.weightUnit, 'kg');
 
     const { data, error } = await supabase
         .from('workout_sets')

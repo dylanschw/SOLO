@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase/client'
 import type { Database, WeightUnit } from '../../../lib/supabase/types'
-import { convertWeight } from '../../../lib/utils/units'
+import { convertWeightForStorage } from '../../../lib/utils/units'
 
 export type BodyweightEntry = Database['public']['Tables']['bodyweight_entries']['Row']
 
@@ -33,7 +33,7 @@ export async function listBodyweightEntries(userId: string) {
 }
 
 export async function createBodyweightEntry(input: CreateBodyweightEntryInput) {
-    const weightKg = convertWeight(input.weight, input.unit, 'kg')
+    const weightKg = convertWeightForStorage(input.weight, input.unit, 'kg')
 
     const { data, error } = await supabase
         .from('bodyweight_entries')
