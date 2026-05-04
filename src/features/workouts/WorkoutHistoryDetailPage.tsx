@@ -332,6 +332,7 @@ export function WorkoutHistoryDetailPage() {
                                                             <input
                                                                 type="number"
                                                                 inputMode="decimal"
+                                                                step="0.5"
                                                                 value={editingSetWeight}
                                                                 onChange={(event) => setEditingSetWeight(event.target.value)}
                                                                 className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"

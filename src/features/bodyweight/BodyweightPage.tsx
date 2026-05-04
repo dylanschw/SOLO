@@ -112,8 +112,8 @@ export function BodyweightPage() {
             type="button"
             onClick={() => setActiveSection(section.id)}
             className={`min-h-11 rounded-xl px-2 text-xs font-semibold transition ${activeSection === section.id
-                ? 'bg-white text-stone-950 shadow-sm dark:bg-neutral-950 dark:text-stone-50'
-                : 'text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-50'
+              ? 'bg-white text-stone-950 shadow-sm dark:bg-neutral-950 dark:text-stone-50'
+              : 'text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-50'
               }`}
           >
             {section.label}
@@ -169,6 +169,7 @@ export function BodyweightPage() {
                   <input
                     type="number"
                     inputMode="decimal"
+                    step="0.1"
                     value={weight}
                     onChange={(event) => setWeight(event.target.value)}
                     placeholder={preferredUnit === 'lb' ? '180.0' : '81.6'}

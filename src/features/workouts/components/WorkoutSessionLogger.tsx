@@ -542,312 +542,314 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         ) : null}
                     </div>
 
-                        <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-                            Target: {activePlannedExercise.planned_sets} sets
-                            {activePlannedExercise.min_reps && activePlannedExercise.max_reps
-                                ? ` x ${activePlannedExercise.min_reps}-${activePlannedExercise.max_reps} reps`
-                                : ''}
-                            {activePlannedExercise.target_rpe ? `, RPE ${activePlannedExercise.target_rpe}` : ''}
-                            {activePlannedExercise.rest_seconds ? `, ${activePlannedExercise.rest_seconds}s rest` : ''}
-                        </p>
+                    <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                        Target: {activePlannedExercise.planned_sets} sets
+                        {activePlannedExercise.min_reps && activePlannedExercise.max_reps
+                            ? ` x ${activePlannedExercise.min_reps}-${activePlannedExercise.max_reps} reps`
+                            : ''}
+                        {activePlannedExercise.target_rpe ? `, RPE ${activePlannedExercise.target_rpe}` : ''}
+                        {activePlannedExercise.rest_seconds ? `, ${activePlannedExercise.rest_seconds}s rest` : ''}
+                    </p>
 
-                        {activePlannedExercise.deload_rule ? (
-                            <details className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
-                                <summary className="cursor-pointer font-semibold">Deload rule</summary>
-                                <p className="mt-2">{activePlannedExercise.deload_rule}</p>
-                            </details>
-                        ) : null}
+                    {activePlannedExercise.deload_rule ? (
+                        <details className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                            <summary className="cursor-pointer font-semibold">Deload rule</summary>
+                            <p className="mt-2">{activePlannedExercise.deload_rule}</p>
+                        </details>
+                    ) : null}
 
-                        {activeExerciseHistory ? (
-                            <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2">
-                                        <History className="size-4 text-emerald-600" />
-                                        <p className="text-sm font-bold">Previous performance</p>
-                                    </div>
-
-                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-stone-600 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-300 dark:ring-neutral-800">
-                                        {activeExerciseHistory.totalSets} sets
-                                    </span>
-                                </div>
-
-                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-neutral-950 dark:ring-neutral-800">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                                            Last set
-                                        </p>
-                                        <p className="mt-1 text-base font-bold">
-                                            {lastExerciseSet?.weight ?? '--'} {preferredUnit} x {lastExerciseSet?.reps ?? '--'}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-neutral-950 dark:ring-neutral-800">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                                            Best estimate
-                                        </p>
-                                        <p className="mt-1 text-base font-bold">
-                                            {bestExerciseSet?.estimatedOneRepMax ?? '--'} {preferredUnit} 1RM
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <button
-                                        type="button"
-                                        onClick={fillLastSet}
-                                        disabled={!lastExerciseSet}
-                                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-                                    >
-                                        <History className="size-4" />
-                                        Use last set
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={fillBestSet}
-                                        disabled={!bestExerciseSet}
-                                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-                                    >
-                                        <Sparkles className="size-4" />
-                                        Use best set
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                                <p className="text-sm font-semibold text-stone-600 dark:text-stone-300">
-                                    No previous sets for this exercise yet.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="mt-3 rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+                    {activeExerciseHistory ? (
+                        <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-300">
-                                    <Timer className="size-4" />
-                                    Rest timer
+                                <div className="flex items-center gap-2">
+                                    <History className="size-4 text-emerald-600" />
+                                    <p className="text-sm font-bold">Previous performance</p>
                                 </div>
 
-                                <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-stone-900 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-50 dark:ring-neutral-800">
-                                    {restTimerLabel}
+                                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-stone-600 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-300 dark:ring-neutral-800">
+                                    {activeExerciseHistory.totalSets} sets
                                 </span>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-3 gap-2">
+                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-neutral-950 dark:ring-neutral-800">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                        Last set
+                                    </p>
+                                    <p className="mt-1 text-base font-bold">
+                                        {lastExerciseSet?.weight ?? '--'} {preferredUnit} x {lastExerciseSet?.reps ?? '--'}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-neutral-950 dark:ring-neutral-800">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                        Best estimate
+                                    </p>
+                                    <p className="mt-1 text-base font-bold">
+                                        {bestExerciseSet?.estimatedOneRepMax ?? '--'} {preferredUnit} 1RM
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <button
                                     type="button"
-                                    onClick={handleSetCustomRestTime}
-                                    className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                                    onClick={fillLastSet}
+                                    disabled={!lastExerciseSet}
+                                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
                                 >
-                                    {formatTimer(restTimerSeconds)}
+                                    <History className="size-4" />
+                                    Use last set
                                 </button>
 
                                 <button
                                     type="button"
-                                    onClick={toggleRestTimer}
-                                    className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                                    onClick={fillBestSet}
+                                    disabled={!bestExerciseSet}
+                                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
                                 >
-                                    {isRestTimerRunning ? 'Pause' : 'Start'}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={clearRestTimer}
-                                    className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
-                                >
-                                    Clear
+                                    <Sparkles className="size-4" />
+                                    Use best set
                                 </button>
                             </div>
                         </div>
+                    ) : (
+                        <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                            <p className="text-sm font-semibold text-stone-600 dark:text-stone-300">
+                                No previous sets for this exercise yet.
+                            </p>
+                        </div>
+                    )}
 
-                        <form onSubmit={handleLogSet} className="mt-4 grid gap-4">
-                            <div className="grid grid-cols-[1fr_90px] gap-3">
-                                <label className="grid gap-2">
-                                    <span className="text-sm font-semibold">Weight</span>
-                                    <input
-                                        type="number"
-                                        inputMode="decimal"
-                                        value={weight}
-                                        onChange={(event) => setWeight(event.target.value)}
-                                        placeholder="Weight"
-                                        className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="text-sm font-semibold">Unit</span>
-                                    <select
-                                        value={weightUnit}
-                                        onChange={(event) => setWeightUnit(event.target.value as WeightUnit)}
-                                        className="min-h-12 rounded-xl border border-stone-200 bg-white px-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                    >
-                                        <option value="lb">lb</option>
-                                        <option value="kg">kg</option>
-                                    </select>
-                                </label>
+                    <div className="mt-3 rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-300">
+                                <Timer className="size-4" />
+                                Rest timer
                             </div>
 
-                            <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Reps</span>
-                                <input
-                                    type="number"
-                                    inputMode="numeric"
-                                    value={reps}
-                                    onChange={(event) => setReps(event.target.value)}
-                                    placeholder="Reps"
-                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                            </label>
+                            <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-stone-900 ring-1 ring-stone-200 dark:bg-neutral-950 dark:text-stone-50 dark:ring-neutral-800">
+                                {restTimerLabel}
+                            </span>
+                        </div>
 
-                            <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Set notes</span>
-                                <input
-                                    value={notes}
-                                    onChange={(event) => setNotes(event.target.value)}
-                                    placeholder="Optional set notes"
-                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
-                            </label>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={handleSetCustomRestTime}
+                                className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                            >
+                                {formatTimer(restTimerSeconds)}
+                            </button>
 
                             <button
-                                type="submit"
-                                disabled={createSet.isPending}
-                                className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                                type="button"
+                                onClick={toggleRestTimer}
+                                className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
                             >
-                                <Plus className="size-4" />
-                                {createSet.isPending ? 'Logging...' : 'Log set'}
+                                {isRestTimerRunning ? 'Pause' : 'Start'}
                             </button>
-                        </form>
 
-                        <div className="mt-4 grid gap-2">
+                            <button
+                                type="button"
+                                onClick={clearRestTimer}
+                                className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
 
-                            {activeLoggedSets.map((set) => {
-                                const isEditingThisSet = editingSetId === set.id;
+                    <form onSubmit={handleLogSet} className="mt-4 grid gap-4">
+                        <div className="grid grid-cols-[1fr_90px] gap-3">
+                            <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Weight</span>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.5"
+                                    value={weight}
+                                    onChange={(event) => setWeight(event.target.value)}
+                                    placeholder="Weight"
+                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                            </label>
 
-                                return (
-                                    <div
-                                        key={set.id}
-                                        className="rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900"
-                                    >
-                                        {isEditingThisSet ? (
-                                            <form onSubmit={handleUpdateSet} className="grid gap-3">
-                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                    <label className="grid gap-2">
-                                                        <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                                                            Weight
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            inputMode="decimal"
-                                                            value={editingSetWeight}
-                                                            onChange={(event) => setEditingSetWeight(event.target.value)}
-                                                            className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                                        />
-                                                    </label>
+                            <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Unit</span>
+                                <select
+                                    value={weightUnit}
+                                    onChange={(event) => setWeightUnit(event.target.value as WeightUnit)}
+                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                >
+                                    <option value="lb">lb</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </label>
+                        </div>
 
-                                                    <label className="grid gap-2">
-                                                        <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                                                            Reps
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            inputMode="numeric"
-                                                            value={editingSetReps}
-                                                            onChange={(event) => setEditingSetReps(event.target.value)}
-                                                            className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                                        />
-                                                    </label>
-                                                </div>
+                        <label className="grid gap-2">
+                            <span className="text-sm font-semibold">Reps</span>
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                value={reps}
+                                onChange={(event) => setReps(event.target.value)}
+                                placeholder="Reps"
+                                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                        </label>
 
+                        <label className="grid gap-2">
+                            <span className="text-sm font-semibold">Set notes</span>
+                            <input
+                                value={notes}
+                                onChange={(event) => setNotes(event.target.value)}
+                                placeholder="Optional set notes"
+                                className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                        </label>
+
+                        <button
+                            type="submit"
+                            disabled={createSet.isPending}
+                            className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <Plus className="size-4" />
+                            {createSet.isPending ? 'Logging...' : 'Log set'}
+                        </button>
+                    </form>
+
+                    <div className="mt-4 grid gap-2">
+
+                        {activeLoggedSets.map((set) => {
+                            const isEditingThisSet = editingSetId === set.id;
+
+                            return (
+                                <div
+                                    key={set.id}
+                                    className="rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900"
+                                >
+                                    {isEditingThisSet ? (
+                                        <form onSubmit={handleUpdateSet} className="grid gap-3">
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <label className="grid gap-2">
                                                     <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                                                        Notes
+                                                        Weight
                                                     </span>
-                                                    <textarea
-                                                        value={editingSetNotes}
-                                                        onChange={(event) => setEditingSetNotes(event.target.value)}
-                                                        rows={2}
-                                                        className="w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    <input
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        value={editingSetWeight}
+                                                        step="0.5"
+                                                        onChange={(event) => setEditingSetWeight(event.target.value)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                                                     />
                                                 </label>
 
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <button
-                                                        type="submit"
-                                                        disabled={updateWorkoutSet.isPending}
-                                                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-60"
-                                                    >
-                                                        <Save className="size-4" />
-                                                        Save
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={cancelEditingSet}
-                                                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold dark:border-neutral-800"
-                                                    >
-                                                        <X className="size-4" />
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        ) : (
-                                            <>
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <span className="font-semibold">
-                                                        Set {set.set_number}: {formatLoggedWeight(set.weight_kg, preferredUnit)} x{' '}
-                                                        {set.reps ?? '--'}
-                                                    </span>
-
+                                                <label className="grid gap-2">
                                                     <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                                                        {set.set_type.replaceAll('_', ' ')}
+                                                        Reps
                                                     </span>
-                                                </div>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="numeric"
+                                                        value={editingSetReps}
+                                                        onChange={(event) => setEditingSetReps(event.target.value)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    />
+                                                </label>
+                                            </div>
 
-                                                {set.notes ? (
-                                                    <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
-                                                        {set.notes}
-                                                    </p>
-                                                ) : null}
+                                            <label className="grid gap-2">
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                    Notes
+                                                </span>
+                                                <textarea
+                                                    value={editingSetNotes}
+                                                    onChange={(event) => setEditingSetNotes(event.target.value)}
+                                                    rows={2}
+                                                    className="w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                />
+                                            </label>
 
-                                                <div className="mt-3 grid grid-cols-2 gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => startEditingSet(set)}
-                                                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-                                                    >
-                                                        <Pencil className="size-4" />
-                                                        Edit
-                                                    </button>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="submit"
+                                                    disabled={updateWorkoutSet.isPending}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-60"
+                                                >
+                                                    <Save className="size-4" />
+                                                    Save
+                                                </button>
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteSet(set.id)}
-                                                        disabled={deleteWorkoutSet.isPending}
-                                                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-red-950/30"
-                                                    >
-                                                        <Trash2 className="size-4" />
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            {activeOfflineSets.map((set) => (
-                                <div
-                                    key={set.localId}
-                                    className="flex items-center justify-between rounded-xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900"
-                                >
-                                    <span className="font-semibold">Set {set.setNumber} pending</span>
-                                    <span>
-                                        {set.weight ?? '--'} {set.weightUnit} x {set.reps ?? '--'} reps
-                                        {set.rpe ? ` @ RPE ${set.rpe}` : ''}
-                                    </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEditingSet}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold dark:border-neutral-800"
+                                                >
+                                                    <X className="size-4" />
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="font-semibold">
+                                                    Set {set.set_number}: {formatLoggedWeight(set.weight_kg, preferredUnit)} x{' '}
+                                                    {set.reps ?? '--'}
+                                                </span>
+
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                    {set.set_type.replaceAll('_', ' ')}
+                                                </span>
+                                            </div>
+
+                                            {set.notes ? (
+                                                <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                                                    {set.notes}
+                                                </p>
+                                            ) : null}
+
+                                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startEditingSet(set)}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                                                >
+                                                    <Pencil className="size-4" />
+                                                    Edit
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSet(set.id)}
+                                                    disabled={deleteWorkoutSet.isPending}
+                                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-red-950/30"
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })}
+                        {activeOfflineSets.map((set) => (
+                            <div
+                                key={set.localId}
+                                className="flex items-center justify-between rounded-xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900"
+                            >
+                                <span className="font-semibold">Set {set.setNumber} pending</span>
+                                <span>
+                                    {set.weight ?? '--'} {set.weightUnit} x {set.reps ?? '--'} reps
+                                    {set.rpe ? ` @ RPE ${set.rpe}` : ''}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </article>
             ) : (
                 <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
