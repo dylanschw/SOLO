@@ -28,6 +28,7 @@ import {
 } from './hooks/useWorkouts'
 import {
   useAllWorkoutSets,
+  useCompleteWorkoutSession,
   useDeleteWorkoutSession,
   useStartWorkoutSession,
   useWorkoutSessions
@@ -94,6 +95,7 @@ export function WorkoutsPage() {
   const updatePlannedExercise = useUpdatePlannedExercise()
   const deletePlannedExercise = useDeletePlannedExercise()
   const startSession = useStartWorkoutSession()
+  const completeSession = useCompleteWorkoutSession()
   const sessionsQuery = useWorkoutSessions()
   const programs = programsQuery.data ?? []
   const activeProgram = activeProgramQuery.data ?? programs.find((program) => program.is_active) ?? null
@@ -444,6 +446,29 @@ export function WorkoutsPage() {
       setStatusMessage('Planned exercise removed.')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not remove planned exercise.')
+    }
+  }
+
+  async function handleEndActiveWorkout(session: WorkoutSession) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const confirmed = window.confirm('End this active workout? You can still view it in workout history.')
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await completeSession.mutateAsync({
+        sessionId: session.id,
+        notes: session.notes ?? null
+      })
+
+      setStatusMessage('Workout ended.')
+      sessionsQuery.refetch()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not end workout.')
     }
   }
 
@@ -847,13 +872,24 @@ export function WorkoutsPage() {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleResumeWorkout(currentResumeSession)}
-                className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
-              >
-                Resume workout
-              </button>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => handleResumeWorkout(currentResumeSession)}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                >
+                  Resume workout
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleEndActiveWorkout(currentResumeSession)}
+                  disabled={completeSession.isPending}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-red-950/30"
+                >
+                  {completeSession.isPending ? 'Ending...' : 'End workout'}
+                </button>
+              </div>
             </article>
           ) : null}
 
