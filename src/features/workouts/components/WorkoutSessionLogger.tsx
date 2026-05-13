@@ -26,6 +26,7 @@ import {
     useCreateWorkoutSet,
     useDeleteWorkoutSet,
     useUpdateWorkoutSet,
+    useWorkoutSessions,
     useWorkoutSets
 } from '../hooks/useWorkoutSessions';
 import {
@@ -67,6 +68,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const plannedExercisesQuery = usePlannedExercises(workoutDay ? [workoutDay.id] : []);
     const setsQuery = useWorkoutSets(session.id);
     const allWorkoutSetsQuery = useAllWorkoutSets();
+    const sessionsQuery = useWorkoutSessions();
     const createSet = useCreateWorkoutSet();
     const completeSession = useCompleteWorkoutSession();
     const offlineSync = useOfflineWorkoutSync(session.id);
@@ -77,6 +79,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const plannedExercises = plannedExercisesQuery.data ?? [];
     const loggedSets = setsQuery.data ?? [];
     const allWorkoutSets = allWorkoutSetsQuery.data ?? [];
+    const workoutSessions = sessionsQuery.data ?? [session];
 
     const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
     const [weight, setWeight] = useState('');
@@ -100,9 +103,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
             buildExerciseHistory({
                 sets: allWorkoutSets,
                 exercises,
+                sessions: workoutSessions,
                 unit: preferredUnit
             }),
-        [allWorkoutSets, exercises, preferredUnit]
+        [allWorkoutSets, exercises, workoutSessions, preferredUnit]
     );
 
     const activeExerciseHistory = activePlannedExercise
@@ -719,6 +723,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                             {createSet.isPending ? 'Logging...' : 'Log set'}
                         </button>
                     </form>
+
+                    <div className="mt-4 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                        Logged sets are session-only. Editing or deleting them here will not change your saved workout plan.
+                    </div>
 
                     <div className="mt-4 grid gap-2">
 

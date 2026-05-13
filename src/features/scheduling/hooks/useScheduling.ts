@@ -2,14 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../auth/hooks/useAuth'
 import {
     archiveRoutineItem,
+    buildRoutineReorderUpdates,
+    carryUnfinishedTasksToToday,
     createDailyTask,
     createRoutineItem,
     deleteDailyTask,
     generateTodayTasksFromRoutine,
     listDailyTasks,
     listRoutineItems,
+    reorderRoutineItems,
+    type RoutineReorderDirection,
     updateDailyTaskStatus
 } from '../lib/scheduling'
+import type { DailyTaskStatus } from '../../../lib/supabase/types'
 
 export function useRoutineItems() {
     const { user } = useAuth()
@@ -123,7 +128,7 @@ export function useUpdateDailyTaskStatus() {
     return useMutation({
         mutationFn: (input: {
             taskId: string
-            status: 'pending' | 'completed' | 'skipped'
+            status: DailyTaskStatus
         }) => {
             if (!user) {
                 throw new Error('Cannot update daily task without a signed-in user')
@@ -132,6 +137,56 @@ export function useUpdateDailyTaskStatus() {
             return updateDailyTaskStatus(user.id, input.taskId, input.status)
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
+        }
+    })
+}
+
+export function useCarryUnfinishedTasksToToday() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (today: string) => {
+            if (!user) {
+                throw new Error('Cannot carry tasks without a signed-in user')
+            }
+
+            return carryUnfinishedTasksToToday(user.id, today)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
+        }
+    })
+}
+
+export function useReorderRoutineItems() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: {
+            routineItemId: string
+            direction: RoutineReorderDirection
+            items: Parameters<typeof buildRoutineReorderUpdates>[0]
+        }) => {
+            if (!user) {
+                throw new Error('Cannot reorder routine items without a signed-in user')
+            }
+
+            const updates = buildRoutineReorderUpdates(input.items, input.routineItemId, input.direction)
+
+            if (updates.length === 0) {
+                return Promise.resolve([])
+            }
+
+            return reorderRoutineItems({
+                userId: user.id,
+                updates
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['routine-items', user?.id] })
             queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
         }
     })

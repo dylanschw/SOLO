@@ -60,6 +60,51 @@ function cleanOptionalNumber(value: number | null | undefined) {
     return value
 }
 
+async function renumberWorkoutSetsForSessionExercise(
+    userId: string,
+    target: Pick<WorkoutSet, 'workout_session_id' | 'planned_exercise_id' | 'exercise_id'>
+) {
+    let query = supabase
+        .from('workout_sets')
+        .select('id, set_number')
+        .eq('user_id', userId)
+        .eq('workout_session_id', target.workout_session_id)
+        .eq('exercise_id', target.exercise_id)
+        .is('deleted_at', null)
+        .order('set_number', { ascending: true })
+        .order('created_at', { ascending: true });
+
+    query = target.planned_exercise_id
+        ? query.eq('planned_exercise_id', target.planned_exercise_id)
+        : query.is('planned_exercise_id', null);
+
+    const { data, error } = await query;
+
+    if (error) {
+        throw error;
+    }
+
+    for (const [index, set] of (data ?? []).entries()) {
+        const nextSetNumber = index + 1;
+
+        if (set.set_number === nextSetNumber) {
+            continue;
+        }
+
+        const { error: renumberError } = await supabase
+            .from('workout_sets')
+            .update({
+                set_number: nextSetNumber,
+            })
+            .eq('user_id', userId)
+            .eq('id', set.id);
+
+        if (renumberError) {
+            throw renumberError;
+        }
+    }
+}
+
 export async function startWorkoutSession(input: StartWorkoutSessionInput) {
     const { data, error } = await supabase
         .from('workout_sessions')
@@ -89,8 +134,9 @@ export async function listWorkoutSessions(userId: string) {
         .select('*')
         .eq('user_id', userId)
         .is('deleted_at', null)
+        .order('session_date', { ascending: false })
         .order('started_at', { ascending: false, nullsFirst: false })
-        .limit(20)
+        .limit(100)
 
     if (error) {
         throw error
@@ -257,6 +303,8 @@ export async function deleteWorkoutSet(userId: string, setId: string) {
     if (error) {
         throw error;
     }
+
+    await renumberWorkoutSetsForSessionExercise(userId, data);
 
     return data;
 }

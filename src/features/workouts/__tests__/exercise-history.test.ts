@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildExerciseHistory, calculateEstimatedOneRepMax } from '../lib/exercise-history';
 import type { Exercise } from '../lib/workouts';
-import type { WorkoutSet } from '../lib/workout-sessions';
+import type { WorkoutSession, WorkoutSet } from '../lib/workout-sessions';
 
 function createSet(overrides: Partial<WorkoutSet>): WorkoutSet {
     return {
@@ -18,6 +18,27 @@ function createSet(overrides: Partial<WorkoutSet>): WorkoutSet {
         rpe: null,
         completed: true,
         notes: null,
+        sync_status: 'synced',
+        version: 1,
+        deleted_at: null,
+        created_at: '2026-01-01T12:00:00.000Z',
+        updated_at: '2026-01-01T12:00:00.000Z',
+        ...overrides,
+    };
+}
+
+function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
+    return {
+        id: 'session-1',
+        user_id: 'user-1',
+        program_id: 'program-1',
+        workout_day_id: 'day-1',
+        session_date: '2026-01-01',
+        started_at: '2026-01-01T12:00:00.000Z',
+        completed_at: '2026-01-01T13:00:00.000Z',
+        status: 'completed',
+        notes: null,
+        client_id: 'client-session-1',
         sync_status: 'synced',
         version: 1,
         deleted_at: null,
@@ -93,5 +114,42 @@ describe('exercise history utilities', () => {
         });
 
         expect(history).toHaveLength(0);
+    });
+
+    it('uses workout session date for latest sets and chart order', () => {
+        const history = buildExerciseHistory({
+            sets: [
+                createSet({
+                    id: 'past-session-set',
+                    workout_session_id: 'session-older',
+                    weight_kg: 100,
+                    reps: 10,
+                    created_at: '2026-05-20T12:00:00.000Z',
+                }),
+                createSet({
+                    id: 'newer-session-set',
+                    workout_session_id: 'session-newer',
+                    weight_kg: 110,
+                    reps: 8,
+                    created_at: '2026-05-10T12:00:00.000Z',
+                }),
+            ],
+            sessions: [
+                createSession({
+                    id: 'session-older',
+                    session_date: '2026-05-01',
+                }),
+                createSession({
+                    id: 'session-newer',
+                    session_date: '2026-05-15',
+                }),
+            ],
+            exercises,
+            unit: 'kg',
+        });
+
+        expect(history[0].latestSet?.id).toBe('newer-session-set');
+        expect(history[0].latestSet?.sessionDate).toBe('2026-05-15');
+        expect(history[0].chartPoints.map((point) => point.weight)).toEqual([100, 110]);
     });
 });

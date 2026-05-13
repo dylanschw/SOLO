@@ -49,6 +49,15 @@ describe('session view helpers', () => {
         expect(getNextSetNumber(plannedExerciseId, [makeSet(plannedExerciseId, 1)])).toBe(2)
     })
 
+    it('gets the next set number from the highest existing set number', () => {
+        const plannedExerciseId = crypto.randomUUID()
+
+        expect(getNextSetNumber(plannedExerciseId, [
+            makeSet(plannedExerciseId, 1),
+            makeSet(plannedExerciseId, 3)
+        ])).toBe(4)
+    })
+
     it('formats logged weight', () => {
         expect(formatLoggedWeight(100, 'kg')).toBe('100 kg')
         expect(formatLoggedWeight(null, 'lb')).toBe('--')

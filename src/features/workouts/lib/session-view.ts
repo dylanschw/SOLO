@@ -13,7 +13,9 @@ export function getLoggedSetsForPlannedExercise(
 }
 
 export function getNextSetNumber(plannedExerciseId: string, loggedSets: WorkoutSet[]) {
-    return getLoggedSetsForPlannedExercise(plannedExerciseId, loggedSets).length + 1
+    const setNumbers = getLoggedSetsForPlannedExercise(plannedExerciseId, loggedSets).map((set) => set.set_number)
+
+    return Math.max(0, ...setNumbers) + 1
 }
 
 export function getExerciseNameForPlannedExercise(

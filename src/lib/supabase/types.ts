@@ -14,6 +14,8 @@ export type WorkoutSessionStatus = 'planned' | 'in_progress' | 'completed' | 'sk
 
 export type LoggedSetType = 'warmup' | 'working' | 'top' | 'backoff' | 'drop'
 
+export type DailyTaskStatus = 'pending' | 'completed' | 'skipped' | 'missed'
+
 export type Database = {
   public: {
     Tables: {
@@ -604,7 +606,7 @@ export type Database = {
           title: string
           category: string | null
           notes: string | null
-          status: string
+          status: DailyTaskStatus
           sort_order: number
           client_id: string
           sync_status: SyncStatus
@@ -623,7 +625,7 @@ export type Database = {
           title: string
           category?: string | null
           notes?: string | null
-          status?: string
+          status?: DailyTaskStatus
           sort_order?: number
           client_id: string
           sync_status?: SyncStatus
@@ -642,7 +644,7 @@ export type Database = {
           title?: string
           category?: string | null
           notes?: string | null
-          status?: string
+          status?: DailyTaskStatus
           sort_order?: number
           client_id?: string
           sync_status?: SyncStatus

@@ -1,7 +1,7 @@
 import type { WeightUnit } from '../../../lib/supabase/types';
 import { convertWeight, roundToOneDecimal } from '../../../lib/utils/units';
 import type { Exercise } from './workouts';
-import type { WorkoutSet } from './workout-sessions';
+import type { WorkoutSession, WorkoutSet } from './workout-sessions';
 
 export type ExerciseHistorySet = {
     id: string;
@@ -14,6 +14,7 @@ export type ExerciseHistorySet = {
     reps: number | null;
     rpe: number | null;
     estimatedOneRepMax: number | null;
+    sessionDate: string;
     createdAt: string;
 };
 
@@ -55,16 +56,53 @@ function getExerciseName(exerciseId: string, exercises: Exercise[]) {
     return exercises.find((exercise) => exercise.id === exerciseId)?.name ?? 'Unknown exercise';
 }
 
+function getFallbackDate(value: string) {
+    const date = new Date(value);
+
+    if (!Number.isFinite(date.getTime())) {
+        return value.slice(0, 10);
+    }
+
+    return date.toISOString().slice(0, 10);
+}
+
+function getSessionDate(set: WorkoutSet, sessionsById: Map<string, WorkoutSession>) {
+    return sessionsById.get(set.workout_session_id)?.session_date ?? getFallbackDate(set.created_at);
+}
+
+function getSessionDateTime(sessionDate: string, createdAt: string) {
+    const sessionTime = new Date(`${sessionDate}T12:00:00`).getTime();
+
+    if (Number.isFinite(sessionTime)) {
+        return sessionTime;
+    }
+
+    const createdTime = new Date(createdAt).getTime();
+
+    return Number.isFinite(createdTime) ? createdTime : 0;
+}
+
+function formatSessionDate(sessionDate: string) {
+    return new Date(`${sessionDate}T00:00:00`).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+    });
+}
+
 export function buildExerciseHistory(input: {
     sets: WorkoutSet[];
     exercises: Exercise[];
+    sessions?: WorkoutSession[];
     unit: WeightUnit;
 }) {
+    const sessionsById = new Map((input.sessions ?? []).map((session) => [session.id, session]));
+
     const validSets = input.sets
         .filter((set) => set.completed && !set.deleted_at)
         .map((set): ExerciseHistorySet => {
             const weight =
                 typeof set.weight_kg === 'number' ? convertWeight(set.weight_kg, 'kg', input.unit) : null;
+            const sessionDate = getSessionDate(set, sessionsById);
 
             return {
                 id: set.id,
@@ -77,10 +115,20 @@ export function buildExerciseHistory(input: {
                 reps: set.reps,
                 rpe: set.rpe,
                 estimatedOneRepMax: calculateEstimatedOneRepMax(weight, set.reps),
+                sessionDate,
                 createdAt: set.created_at,
             };
         })
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => {
+            const sessionDateDifference =
+                getSessionDateTime(b.sessionDate, b.createdAt) - getSessionDateTime(a.sessionDate, a.createdAt);
+
+            if (sessionDateDifference !== 0) {
+                return sessionDateDifference;
+            }
+
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
 
     const grouped = new Map<string, ExerciseHistorySet[]>();
 
@@ -106,10 +154,7 @@ export function buildExerciseHistory(input: {
                 .slice()
                 .reverse()
                 .map((set) => ({
-                    date: new Date(set.createdAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                    }),
+                    date: formatSessionDate(set.sessionDate),
                     weight: set.weight,
                     estimatedOneRepMax: set.estimatedOneRepMax,
                 }))

@@ -1,16 +1,20 @@
-import { CalendarCheck, CheckCircle, Plus, RotateCcw, SkipForward, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarCheck, CheckCircle, Plus, RotateCcw, SkipForward, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
     useArchiveRoutineItem,
+    useCarryUnfinishedTasksToToday,
     useCreateDailyTask,
     useCreateRoutineItem,
     useDailyTasks,
     useDeleteDailyTask,
     useGenerateTodayTasksFromRoutine,
+    useReorderRoutineItems,
     useRoutineItems,
     useUpdateDailyTaskStatus
 } from './hooks/useScheduling'
+import type { DailyTaskStatus } from '../../lib/supabase/types'
+import { isTaskDateBefore } from './lib/scheduling'
 
 type SchedulingSection = 'today' | 'routine' | 'history'
 
@@ -25,6 +29,22 @@ const schedulingSections: Array<{
 
 function todayDate() {
     return new Date().toISOString().slice(0, 10)
+}
+
+function getTaskStatusClass(status: DailyTaskStatus) {
+    if (status === 'completed') {
+        return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900'
+    }
+
+    if (status === 'skipped') {
+        return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-900'
+    }
+
+    if (status === 'missed') {
+        return 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900'
+    }
+
+    return 'bg-stone-100 text-stone-600 dark:bg-neutral-900 dark:text-stone-300'
 }
 
 export function SchedulingPage() {
@@ -49,6 +69,8 @@ export function SchedulingPage() {
     const deleteTask = useDeleteDailyTask()
     const archiveRoutineItem = useArchiveRoutineItem()
     const generateTodayTasks = useGenerateTodayTasksFromRoutine()
+    const carryUnfinishedTasks = useCarryUnfinishedTasksToToday()
+    const reorderRoutineItems = useReorderRoutineItems()
 
     const routineItems = routineItemsQuery.data ?? []
     const todayTasks = todayTasksQuery.data ?? []
@@ -138,13 +160,46 @@ export function SchedulingPage() {
         }
     }
 
-    async function handleUpdateTaskStatus(taskId: string, status: 'pending' | 'completed' | 'skipped') {
+    async function handleCarryUnfinishedTasks() {
+        setErrorMessage(null)
+        setStatusMessage(null)
+
+        try {
+            const copiedTasks = await carryUnfinishedTasks.mutateAsync(today)
+
+            setStatusMessage(
+                copiedTasks.length === 0
+                    ? 'No unfinished tasks to carry forward.'
+                    : `Copied ${copiedTasks.length} unfinished tasks to today.`
+            )
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not carry tasks forward.')
+        }
+    }
+
+    async function handleUpdateTaskStatus(taskId: string, status: DailyTaskStatus) {
         setErrorMessage(null)
 
         try {
             await updateTaskStatus.mutateAsync({ taskId, status })
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Could not update task.')
+        }
+    }
+
+    async function handleReorderRoutineItem(routineItemId: string, direction: 'up' | 'down') {
+        setErrorMessage(null)
+        setStatusMessage(null)
+
+        try {
+            await reorderRoutineItems.mutateAsync({
+                routineItemId,
+                direction,
+                items: routineItems
+            })
+            setStatusMessage('Routine order updated.')
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not reorder routine items.')
         }
     }
 
@@ -234,21 +289,32 @@ export function SchedulingPage() {
                     </div>
 
                     <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                             <div>
                                 <h2 className="text-xl font-bold">Today checklist</h2>
                                 <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{today}</p>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={handleGenerateTodayTasks}
-                                disabled={generateTodayTasks.isPending}
-                                className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
-                            >
-                                <RotateCcw className="size-4" />
-                                Routine
-                            </button>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateTodayTasks}
+                                    disabled={generateTodayTasks.isPending}
+                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                                >
+                                    <RotateCcw className="size-4" />
+                                    Routine
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCarryUnfinishedTasks}
+                                    disabled={carryUnfinishedTasks.isPending}
+                                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                                >
+                                    Carry over
+                                </button>
+                            </div>
                         </div>
 
                         <form onSubmit={handleCreateTask} className="mt-5 grid gap-3">
@@ -288,7 +354,7 @@ export function SchedulingPage() {
                         <div className="mt-5 grid gap-3">
                             {todayTasks.length === 0 ? (
                                 <p className="text-sm leading-6 text-stone-600 dark:text-stone-300">
-                                    No tasks yet. Add a task or generate today’s checklist from your routine.
+                                    No tasks yet. Add a task or generate today's checklist from your routine.
                                 </p>
                             ) : null}
 
@@ -301,7 +367,7 @@ export function SchedulingPage() {
                                         <div className="min-w-0">
                                             <p className="font-bold">{task.title}</p>
                                             <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                                                {task.category || 'General'} · {task.status}
+                                                {task.category || 'General'} - {task.status}
                                             </p>
                                             {task.notes ? (
                                                 <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
@@ -310,14 +376,7 @@ export function SchedulingPage() {
                                             ) : null}
                                         </div>
 
-                                        <span
-                                            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${task.status === 'completed'
-                                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900'
-                                                    : task.status === 'skipped'
-                                                        ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-900'
-                                                        : 'bg-stone-100 text-stone-600 dark:bg-neutral-900 dark:text-stone-300'
-                                                }`}
-                                        >
+                                        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${getTaskStatusClass(task.status)}`}>
                                             {task.status}
                                         </span>
                                     </div>
@@ -413,15 +472,15 @@ export function SchedulingPage() {
                             </p>
                         ) : null}
 
-                        {routineItems.map((item) => (
+                        {routineItems.map((item, index) => (
                             <div
                                 key={item.id}
-                                className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 p-4 dark:border-neutral-800"
+                                className="grid gap-3 rounded-xl border border-stone-200 p-4 dark:border-neutral-800 sm:grid-cols-[1fr_auto] sm:items-center"
                             >
                                 <div className="min-w-0">
                                     <p className="font-bold">{item.title}</p>
                                     <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                                        {item.category || 'General'} · daily
+                                        {item.category || 'General'} - daily
                                     </p>
                                     {item.notes ? (
                                         <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
@@ -430,14 +489,36 @@ export function SchedulingPage() {
                                     ) : null}
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => handleArchiveRoutineItem(item.id)}
-                                    className="grid size-11 shrink-0 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-red-600 dark:text-stone-400 dark:hover:bg-neutral-900"
-                                    aria-label="Remove routine item"
-                                >
-                                    <Trash2 className="size-5" />
-                                </button>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleReorderRoutineItem(item.id, 'up')}
+                                        disabled={index === 0 || reorderRoutineItems.isPending}
+                                        className="grid size-11 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-40 dark:text-stone-400 dark:hover:bg-neutral-900 dark:hover:text-stone-50"
+                                        aria-label="Move routine item up"
+                                    >
+                                        <ArrowUp className="size-5" />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleReorderRoutineItem(item.id, 'down')}
+                                        disabled={index === routineItems.length - 1 || reorderRoutineItems.isPending}
+                                        className="grid size-11 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-40 dark:text-stone-400 dark:hover:bg-neutral-900 dark:hover:text-stone-50"
+                                        aria-label="Move routine item down"
+                                    >
+                                        <ArrowDown className="size-5" />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleArchiveRoutineItem(item.id)}
+                                        className="grid size-11 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-red-600 dark:text-stone-400 dark:hover:bg-neutral-900"
+                                        aria-label="Remove routine item"
+                                    >
+                                        <Trash2 className="size-5" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -464,14 +545,24 @@ export function SchedulingPage() {
                                     <div className="min-w-0">
                                         <p className="font-bold">{task.title}</p>
                                         <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                                            {task.task_date} · {task.category || 'General'}
+                                            {task.task_date} - {task.category || 'General'}
                                         </p>
                                     </div>
 
-                                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getTaskStatusClass(task.status)}`}>
                                         {task.status}
                                     </span>
                                 </div>
+
+                                {task.status === 'pending' && isTaskDateBefore(task.task_date, today) ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUpdateTaskStatus(task.id, 'missed')}
+                                        className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                                    >
+                                        Mark missed
+                                    </button>
+                                ) : null}
                             </div>
                         ))}
                     </div>

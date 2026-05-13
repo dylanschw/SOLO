@@ -120,9 +120,10 @@ export function WorkoutsPage() {
       buildExerciseHistory({
         sets: allWorkoutSets,
         exercises,
+        sessions: recentSessions,
         unit: preferredUnit,
       }),
-    [allWorkoutSets, exercises, preferredUnit]
+    [allWorkoutSets, exercises, recentSessions, preferredUnit]
   );
 
   const inProgressSessions = recentSessions.filter((session) => session.status === 'in_progress')
@@ -1812,7 +1813,7 @@ export function WorkoutsPage() {
                         {set.weight ?? '--'} {preferredUnit} x {set.reps ?? '--'}
                       </span>
                       <span className="text-xs text-stone-500 dark:text-stone-400">
-                        {new Date(set.createdAt).toLocaleDateString()}
+                        {new Date(`${set.sessionDate}T00:00:00`).toLocaleDateString()}
                       </span>
                     </div>
                   ))}
