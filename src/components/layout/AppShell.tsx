@@ -1,4 +1,4 @@
-import { Activity, Apple, Dumbbell, Home, Scale, Settings } from 'lucide-react'
+import { Activity, Apple, CalendarCheck, Dumbbell, Home, Scale, Settings } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navItems = [
@@ -6,6 +6,7 @@ const navItems = [
   { to: '/app/workouts', label: 'Train', icon: Dumbbell },
   { to: '/app/nutrition', label: 'Food', icon: Apple },
   { to: '/app/bodyweight', label: 'Weight', icon: Scale },
+  { to: '/app/scheduling', label: 'Schedule', icon: CalendarCheck },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -29,7 +30,7 @@ export function AppShell() {
         </main>
 
         <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-stone-200 bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-6 gap-1">
             {navItems.map((item) => {
               const Icon = item.icon
 
@@ -39,14 +40,14 @@ export function AppShell() {
                   to={item.to}
                   className={({ isActive }) =>
                     [
-                      'flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs font-medium transition',
+                      'flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium transition',
                       isActive
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
                         : 'text-stone-500 hover:bg-stone-100 hover:text-stone-950 dark:text-stone-400 dark:hover:bg-neutral-900 dark:hover:text-stone-50',
                     ].join(' ')
                   }
                 >
-                  <Icon size={20} aria-hidden="true" />
+                  <Icon size={19} aria-hidden="true" />
                   <span>{item.label}</span>
                 </NavLink>
               )
