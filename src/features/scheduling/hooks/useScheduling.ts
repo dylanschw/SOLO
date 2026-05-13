@@ -8,6 +8,11 @@ import {
     generateTodayTasksFromRoutine,
     listDailyTasks,
     listRoutineItems,
+    carryUnfinishedTasksToToday,
+    updateDailyTask,
+    updateRoutineItem,
+    type UpdateDailyTaskInput,
+    type UpdateRoutineItemInput,
     updateDailyTaskStatus
 } from '../lib/scheduling'
 
@@ -148,6 +153,67 @@ export function useDeleteDailyTask() {
             }
 
             return deleteDailyTask(user.id, taskId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
+        }
+    })
+}
+
+export function useUpdateRoutineItem() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateRoutineItemInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update routine item without a signed-in user')
+            }
+
+            return updateRoutineItem({
+                userId: user.id,
+                ...input
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['routine-items', user?.id] })
+            queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
+        }
+    })
+}
+
+export function useUpdateDailyTask() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateDailyTaskInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update daily task without a signed-in user')
+            }
+
+            return updateDailyTask({
+                userId: user.id,
+                ...input
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
+        }
+    })
+}
+
+export function useCarryUnfinishedTasksToToday() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (today: string) => {
+            if (!user) {
+                throw new Error('Cannot carry tasks without a signed-in user')
+            }
+
+            return carryUnfinishedTasksToToday(user.id, today)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })

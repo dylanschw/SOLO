@@ -22,6 +22,23 @@ export type CreateDailyTaskInput = {
     sortOrder?: number
 }
 
+export type UpdateRoutineItemInput = {
+    userId: string
+    routineItemId: string
+    title: string
+    category?: string | null
+    notes?: string | null
+}
+
+export type UpdateDailyTaskInput = {
+    userId: string
+    taskId: string
+    taskDate: string
+    title: string
+    category?: string | null
+    notes?: string | null
+}
+
 function createClientId() {
     return crypto.randomUUID()
 }
@@ -178,6 +195,118 @@ export async function deleteDailyTask(userId: string, taskId: string) {
 
     if (error) {
         throw error
+    }
+
+    return data
+}
+
+export async function updateRoutineItem(input: UpdateRoutineItemInput) {
+    const { data, error } = await supabase
+        .from('routine_items')
+        .update({
+            title: input.title.trim(),
+            category: cleanText(input.category),
+            notes: cleanText(input.notes),
+            updated_at: new Date().toISOString()
+        })
+        .eq('user_id', input.userId)
+        .eq('id', input.routineItemId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function updateDailyTask(input: UpdateDailyTaskInput) {
+    const { data, error } = await supabase
+        .from('daily_tasks')
+        .update({
+            task_date: input.taskDate,
+            title: input.title.trim(),
+            category: cleanText(input.category),
+            notes: cleanText(input.notes),
+            updated_at: new Date().toISOString()
+        })
+        .eq('user_id', input.userId)
+        .eq('id', input.taskId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function carryUnfinishedTasksToToday(userId: string, today: string) {
+    const { data: unfinishedTasks, error } = await supabase
+        .from('daily_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .is('deleted_at', null)
+        .lt('task_date', today)
+        .order('task_date', { ascending: true })
+        .order('sort_order', { ascending: true })
+
+    if (error) {
+        throw error
+    }
+
+    const tasksToCopy = unfinishedTasks ?? []
+
+    if (tasksToCopy.length === 0) {
+        return []
+    }
+
+    const { data: todayTasks, error: todayTasksError } = await supabase
+        .from('daily_tasks')
+        .select('title, category')
+        .eq('user_id', userId)
+        .eq('task_date', today)
+        .is('deleted_at', null)
+
+    if (todayTasksError) {
+        throw todayTasksError
+    }
+
+    const existingTodayKeys = new Set(
+        (todayTasks ?? []).map((task) => `${task.title.trim().toLowerCase()}|${task.category ?? ''}`)
+    )
+
+    const copiedTasks = tasksToCopy.filter(
+        (task) => !existingTodayKeys.has(`${task.title.trim().toLowerCase()}|${task.category ?? ''}`)
+    )
+
+    if (copiedTasks.length === 0) {
+        return []
+    }
+
+    const { data, error: insertError } = await supabase
+        .from('daily_tasks')
+        .insert(
+            copiedTasks.map((task, index) => ({
+                user_id: userId,
+                routine_item_id: task.routine_item_id,
+                task_date: today,
+                title: task.title,
+                category: task.category,
+                notes: task.notes,
+                status: 'pending' as const,
+                sort_order: index + 1,
+                client_id: createClientId(),
+                sync_status: 'synced' as const
+            }))
+        )
+        .select()
+
+    if (insertError) {
+        throw insertError
     }
 
     return data
