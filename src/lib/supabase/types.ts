@@ -542,6 +542,119 @@ export type Database = {
         }
         Relationships: []
       }
+
+      routine_items: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          category: string | null
+          notes: string | null
+          sort_order: number
+          is_active: boolean
+          recurrence: string
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          category?: string | null
+          notes?: string | null
+          sort_order?: number
+          is_active?: boolean
+          recurrence?: string
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          category?: string | null
+          notes?: string | null
+          sort_order?: number
+          is_active?: boolean
+          recurrence?: string
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      daily_tasks: {
+        Row: {
+          id: string
+          user_id: string
+          routine_item_id: string | null
+          task_date: string
+          title: string
+          category: string | null
+          notes: string | null
+          status: string
+          sort_order: number
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          completed_at: string | null
+          skipped_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          routine_item_id?: string | null
+          task_date: string
+          title: string
+          category?: string | null
+          notes?: string | null
+          status?: string
+          sort_order?: number
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          completed_at?: string | null
+          skipped_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          routine_item_id?: string | null
+          task_date?: string
+          title?: string
+          category?: string | null
+          notes?: string | null
+          status?: string
+          sort_order?: number
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          completed_at?: string | null
+          skipped_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
