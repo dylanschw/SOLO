@@ -1,5 +1,5 @@
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Scale, Trash2 } from 'lucide-react'
+import { Pencil, Save, Scale, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { WeightUnit } from '../../lib/supabase/types'
@@ -12,8 +12,10 @@ import {
 import {
   useBodyweightEntries,
   useCreateBodyweightEntry,
-  useDeleteBodyweightEntry
+  useDeleteBodyweightEntry,
+  useUpdateBodyweightEntry
 } from './hooks/useBodyweightEntries'
+import type { BodyweightEntry } from './lib/bodyweight'
 
 function getTodayDateInputValue() {
   return new Date().toISOString().slice(0, 10)
@@ -35,6 +37,7 @@ export function BodyweightPage() {
   const entriesQuery = useBodyweightEntries()
   const createEntry = useCreateBodyweightEntry()
   const deleteEntry = useDeleteBodyweightEntry()
+  const updateEntry = useUpdateBodyweightEntry()
 
   const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb'
 
@@ -43,7 +46,13 @@ export function BodyweightPage() {
   const [unit, setUnit] = useState<WeightUnit>(preferredUnit)
   const [notes, setNotes] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState<BodyweightPageSection>('add')
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [editingEntryDate, setEditingEntryDate] = useState('')
+  const [editingWeight, setEditingWeight] = useState('')
+  const [editingUnit, setEditingUnit] = useState<WeightUnit>(preferredUnit)
+  const [editingNotes, setEditingNotes] = useState('')
 
   const entries = entriesQuery.data ?? []
 
@@ -60,6 +69,7 @@ export function BodyweightPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setErrorMessage(null)
+    setStatusMessage(null)
 
     const numericWeight = Number(weight)
 
@@ -85,19 +95,90 @@ export function BodyweightPage() {
       setNotes('')
       setUnit(preferredUnit)
       setEntryDate(getTodayDateInputValue())
+      setStatusMessage(entries.some((entry) => entry.entry_date === entryDate) ? 'Updated weigh in for that date.' : 'Weigh in saved.')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not save bodyweight entry.')
     }
   }
 
+  function startEditingEntry(entry: BodyweightEntry) {
+    setEditingEntryId(entry.id)
+    setEditingEntryDate(entry.entry_date)
+    setEditingWeight(String(formatBodyweight(entry, preferredUnit)))
+    setEditingUnit(preferredUnit)
+    setEditingNotes(entry.notes ?? '')
+  }
+
+  function cancelEditingEntry() {
+    setEditingEntryId(null)
+    setEditingEntryDate('')
+    setEditingWeight('')
+    setEditingUnit(preferredUnit)
+    setEditingNotes('')
+  }
+
+  async function handleUpdateEntry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setErrorMessage(null)
+    setStatusMessage(null)
+
+    if (!editingEntryId) {
+      return
+    }
+
+    const numericWeight = Number(editingWeight)
+
+    if (!editingEntryDate) {
+      setErrorMessage('Choose a date.')
+      return
+    }
+
+    if (!Number.isFinite(numericWeight) || numericWeight <= 0) {
+      setErrorMessage('Enter a valid bodyweight.')
+      return
+    }
+
+    const dateAlreadyExists = entries.some(
+      (entry) => entry.id !== editingEntryId && entry.entry_date === editingEntryDate
+    )
+
+    if (dateAlreadyExists) {
+      setErrorMessage('A weigh in already exists for that date. Edit that entry instead.')
+      return
+    }
+
+    try {
+      await updateEntry.mutateAsync({
+        entryId: editingEntryId,
+        entryDate: editingEntryDate,
+        weight: numericWeight,
+        unit: editingUnit,
+        notes: editingNotes
+      })
+
+      cancelEditingEntry()
+      setStatusMessage('Weigh in updated.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not update bodyweight entry.')
+    }
+  }
+
   async function handleDelete(entryId: string) {
+    setErrorMessage(null)
+    setStatusMessage(null)
+
     const confirmed = window.confirm('Delete this bodyweight entry?')
 
     if (!confirmed) {
       return
     }
 
-    await deleteEntry.mutateAsync(entryId)
+    try {
+      await deleteEntry.mutateAsync(entryId)
+      setStatusMessage('Weigh in deleted.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not delete bodyweight entry.')
+    }
   }
 
   return (
@@ -124,6 +205,12 @@ export function BodyweightPage() {
       {errorMessage ? (
         <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900">
           {errorMessage}
+        </p>
+      ) : null}
+
+      {statusMessage ? (
+        <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
+          {statusMessage}
         </p>
       ) : null}
 
@@ -282,27 +369,120 @@ export function BodyweightPage() {
             {entries.map((entry) => (
               <div
                 key={entry.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 p-4 dark:border-neutral-800"
+                className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800"
               >
-                <div className="min-w-0">
-                  <p className="font-semibold">
-                    {formatBodyweight(entry, preferredUnit)} {preferredUnit}
-                  </p>
-                  <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{entry.entry_date}</p>
-                  {entry.notes ? (
-                    <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{entry.notes}</p>
-                  ) : null}
-                </div>
+                {editingEntryId === entry.id ? (
+                  <form onSubmit={handleUpdateEntry} className="grid gap-3">
+                    <label className="grid gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                        Date
+                      </span>
+                      <input
+                        type="date"
+                        value={editingEntryDate}
+                        onChange={(event) => setEditingEntryDate(event.target.value)}
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                    </label>
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(entry.id)}
-                  disabled={deleteEntry.isPending}
-                  className="grid size-11 shrink-0 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-400 dark:hover:bg-neutral-900"
-                  aria-label="Delete bodyweight entry"
-                >
-                  <Trash2 className="size-5" />
-                </button>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_110px]">
+                      <label className="grid gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                          Weight
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.1"
+                          value={editingWeight}
+                          onChange={(event) => setEditingWeight(event.target.value)}
+                          className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                        />
+                      </label>
+
+                      <label className="grid gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                          Unit
+                        </span>
+                        <select
+                          value={editingUnit}
+                          onChange={(event) => setEditingUnit(event.target.value as WeightUnit)}
+                          className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                        >
+                          <option value="lb">lb</option>
+                          <option value="kg">kg</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="grid gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                        Notes
+                      </span>
+                      <textarea
+                        value={editingNotes}
+                        onChange={(event) => setEditingNotes(event.target.value)}
+                        rows={2}
+                        className="w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="submit"
+                        disabled={updateEntry.isPending}
+                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        <Save className="size-4" />
+                        Save
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={cancelEditingEntry}
+                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold dark:border-neutral-800"
+                      >
+                        <X className="size-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold">
+                          {formatBodyweight(entry, preferredUnit)} {preferredUnit}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{entry.entry_date}</p>
+                        {entry.notes ? (
+                          <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{entry.notes}</p>
+                        ) : null}
+                      </div>
+
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => startEditingEntry(entry)}
+                          className="grid size-11 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-stone-950 dark:text-stone-400 dark:hover:bg-neutral-900 dark:hover:text-stone-50"
+                          aria-label="Edit bodyweight entry"
+                        >
+                          <Pencil className="size-5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(entry.id)}
+                          disabled={deleteEntry.isPending}
+                          className="grid size-11 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-400 dark:hover:bg-neutral-900"
+                          aria-label="Delete bodyweight entry"
+                        >
+                          <Trash2 className="size-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

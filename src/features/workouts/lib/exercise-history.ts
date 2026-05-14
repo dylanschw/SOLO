@@ -1,7 +1,7 @@
 import type { WeightUnit } from '../../../lib/supabase/types';
 import { convertWeight, roundToOneDecimal } from '../../../lib/utils/units';
 import type { Exercise } from './workouts';
-import type { WorkoutSet } from './workout-sessions';
+import type { WorkoutSet, WorkoutSetWithSessionDate } from './workout-sessions';
 
 export type ExerciseHistorySet = {
     id: string;
@@ -15,6 +15,7 @@ export type ExerciseHistorySet = {
     rpe: number | null;
     estimatedOneRepMax: number | null;
     createdAt: string;
+    sessionDate: string;
 };
 
 export type ExerciseHistorySummary = {
@@ -55,8 +56,24 @@ function getExerciseName(exerciseId: string, exercises: Exercise[]) {
     return exercises.find((exercise) => exercise.id === exerciseId)?.name ?? 'Unknown exercise';
 }
 
+export function getWorkoutSetSessionDate(set: WorkoutSet | WorkoutSetWithSessionDate) {
+    return 'workout_sessions' in set && set.workout_sessions?.session_date
+        ? set.workout_sessions.session_date
+        : set.created_at.slice(0, 10);
+}
+
+function compareHistorySetsNewestFirst(a: ExerciseHistorySet, b: ExerciseHistorySet) {
+    const sessionDateCompare = b.sessionDate.localeCompare(a.sessionDate);
+
+    if (sessionDateCompare !== 0) {
+        return sessionDateCompare;
+    }
+
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+}
+
 export function buildExerciseHistory(input: {
-    sets: WorkoutSet[];
+    sets: Array<WorkoutSet | WorkoutSetWithSessionDate>;
     exercises: Exercise[];
     unit: WeightUnit;
 }) {
@@ -78,9 +95,10 @@ export function buildExerciseHistory(input: {
                 rpe: set.rpe,
                 estimatedOneRepMax: calculateEstimatedOneRepMax(weight, set.reps),
                 createdAt: set.created_at,
+                sessionDate: getWorkoutSetSessionDate(set),
             };
         })
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort(compareHistorySetsNewestFirst);
 
     const grouped = new Map<string, ExerciseHistorySet[]>();
 
@@ -106,7 +124,7 @@ export function buildExerciseHistory(input: {
                 .slice()
                 .reverse()
                 .map((set) => ({
-                    date: new Date(set.createdAt).toLocaleDateString(undefined, {
+                    date: new Date(`${set.sessionDate}T00:00:00`).toLocaleDateString(undefined, {
                         month: 'short',
                         day: 'numeric',
                     }),
@@ -127,4 +145,53 @@ export function buildExerciseHistory(input: {
             };
         })
         .sort((a, b) => a.exerciseName.localeCompare(b.exerciseName));
+}
+
+export function getLatestExerciseSessionSets(input: {
+    sets: Array<WorkoutSet | WorkoutSetWithSessionDate>;
+    exerciseId: string;
+    beforeSessionId?: string | null;
+    onOrBeforeDate?: string | null;
+}) {
+    const groupedBySession = new Map<string, Array<WorkoutSet | WorkoutSetWithSessionDate>>();
+
+    for (const set of input.sets) {
+        if (set.exercise_id !== input.exerciseId || set.deleted_at) {
+            continue;
+        }
+
+        if (input.beforeSessionId && set.workout_session_id === input.beforeSessionId) {
+            continue;
+        }
+
+        const sessionDate = getWorkoutSetSessionDate(set);
+
+        if (input.onOrBeforeDate && sessionDate > input.onOrBeforeDate) {
+            continue;
+        }
+
+        const sessionSets = groupedBySession.get(set.workout_session_id) ?? [];
+        sessionSets.push(set);
+        groupedBySession.set(set.workout_session_id, sessionSets);
+    }
+
+    const latestSession = Array.from(groupedBySession.values())
+        .map((sets) => ({
+            sessionDate: sets[0] ? getWorkoutSetSessionDate(sets[0]) : '',
+            latestCreatedAt: sets
+                .map((set) => new Date(set.created_at).getTime())
+                .sort((a, b) => b - a)[0] ?? 0,
+            sets: sets.slice().sort((a, b) => a.set_number - b.set_number),
+        }))
+        .sort((a, b) => {
+            const sessionDateCompare = b.sessionDate.localeCompare(a.sessionDate);
+
+            if (sessionDateCompare !== 0) {
+                return sessionDateCompare;
+            }
+
+            return b.latestCreatedAt - a.latestCreatedAt;
+        })[0];
+
+    return latestSession?.sets ?? [];
 }

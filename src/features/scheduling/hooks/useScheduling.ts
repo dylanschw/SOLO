@@ -6,11 +6,14 @@ import {
     createRoutineItem,
     deleteDailyTask,
     generateTodayTasksFromRoutine,
+    getDailyWellnessEntry,
     listDailyTasks,
     listRoutineItems,
     carryUnfinishedTasksToToday,
+    upsertDailyWellnessEntry,
     updateDailyTask,
     updateRoutineItem,
+    type UpsertDailyWellnessEntryInput,
     type UpdateDailyTaskInput,
     type UpdateRoutineItemInput,
     updateDailyTaskStatus
@@ -45,6 +48,22 @@ export function useDailyTasks(taskDate?: string) {
             return listDailyTasks(user.id, taskDate)
         },
         enabled: Boolean(user)
+    })
+}
+
+export function useDailyWellnessEntry(entryDate: string) {
+    const { user } = useAuth()
+
+    return useQuery({
+        queryKey: ['daily-wellness-entry', user?.id, entryDate],
+        queryFn: () => {
+            if (!user) {
+                throw new Error('Cannot load daily wellness without a signed-in user')
+            }
+
+            return getDailyWellnessEntry(user.id, entryDate)
+        },
+        enabled: Boolean(user && entryDate)
     })
 }
 
@@ -235,6 +254,27 @@ export function useGenerateTodayTasksFromRoutine() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['daily-tasks', user?.id] })
+        }
+    })
+}
+
+export function useUpsertDailyWellnessEntry() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpsertDailyWellnessEntryInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot save daily wellness without a signed-in user')
+            }
+
+            return upsertDailyWellnessEntry({
+                userId: user.id,
+                ...input
+            })
+        },
+        onSuccess: (_entry, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['daily-wellness-entry', user?.id, variables.entryDate] })
         }
     })
 }

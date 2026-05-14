@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
     formatLoggedWeight,
+    formatWorkoutSetLoad,
     getLoggedSetsForPlannedExercise,
     getNextSetNumber
 } from '../lib/session-view'
@@ -15,7 +16,10 @@ function makeSet(plannedExerciseId: string, setNumber: number): WorkoutSet {
         exercise_id: crypto.randomUUID(),
         set_number: setNumber,
         set_type: 'working',
+        load_type: 'weighted',
         weight_kg: 100,
+        assist_weight_kg: null,
+        added_weight_kg: null,
         reps: 8,
         rpe: 8,
         completed: true,
@@ -49,8 +53,55 @@ describe('session view helpers', () => {
         expect(getNextSetNumber(plannedExerciseId, [makeSet(plannedExerciseId, 1)])).toBe(2)
     })
 
+    it('gets the next set number without duplicating after a deletion gap', () => {
+        const plannedExerciseId = crypto.randomUUID()
+
+        expect(getNextSetNumber(plannedExerciseId, [
+            makeSet(plannedExerciseId, 1),
+            makeSet(plannedExerciseId, 3),
+        ])).toBe(4)
+    })
+
     it('formats logged weight', () => {
         expect(formatLoggedWeight(100, 'kg')).toBe('100 kg')
         expect(formatLoggedWeight(null, 'lb')).toBe('--')
+    })
+
+    it('formats session load types without duplicate units', () => {
+        expect(
+            formatWorkoutSetLoad(
+                {
+                    load_type: 'assisted',
+                    weight_kg: null,
+                    assist_weight_kg: 27.2155,
+                    added_weight_kg: null
+                },
+                'lb'
+            )
+        ).toBe('Assisted 60 lb')
+
+        expect(
+            formatWorkoutSetLoad(
+                {
+                    load_type: 'added_weight',
+                    weight_kg: null,
+                    assist_weight_kg: null,
+                    added_weight_kg: 11.3398
+                },
+                'lb'
+            )
+        ).toBe('+25 lb')
+
+        expect(
+            formatWorkoutSetLoad(
+                {
+                    load_type: 'no_weight',
+                    weight_kg: null,
+                    assist_weight_kg: null,
+                    added_weight_kg: null
+                },
+                'lb'
+            )
+        ).toBe('No weight')
     })
 })

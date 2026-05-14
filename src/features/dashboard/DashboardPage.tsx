@@ -93,6 +93,34 @@ export function DashboardPage() {
     ? `/app/workouts/session/${inProgressWorkout.id}`
     : '/app/workouts';
 
+  const quickActions = [
+    {
+      title: inProgressWorkout ? 'Resume workout' : 'Start workout',
+      to: workoutStatusLink,
+      icon: Dumbbell
+    },
+    {
+      title: 'Log food',
+      to: '/app/nutrition',
+      icon: Apple
+    },
+    {
+      title: 'Add weight',
+      to: '/app/bodyweight',
+      icon: Scale
+    },
+    {
+      title: 'Add past workout',
+      to: '/app/workouts',
+      icon: CalendarDays
+    },
+    {
+      title: 'Scheduling',
+      to: '/app/scheduling',
+      icon: ListChecks
+    }
+  ];
+
   return (
     <section>
       <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Dashboard</p>
@@ -123,6 +151,26 @@ export function DashboardPage() {
           <ChevronRight className="size-4" />
         </Link>
       </div>
+
+      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="text-xl font-bold">Quick actions</h2>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <Link
+                key={action.title}
+                to={action.to}
+                className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+              >
+                <span>{action.title}</span>
+                <Icon className="size-4" />
+              </Link>
+            );
+          })}
+        </div>
+      </article>
 
       <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
         <div className="flex items-center justify-between gap-3">

@@ -11,11 +11,13 @@ import {
     X,
     Plus,
     Sparkles,
-    Timer
+    Timer,
+    SkipForward,
+    Replace
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { WeightUnit } from '../../../lib/supabase/types';
+import type { WeightUnit, WorkoutSetLoadType } from '../../../lib/supabase/types';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useProfile } from '../../profile/hooks/useProfile';
 import { buildRecommendationForExercise } from '../lib/progression';
@@ -30,6 +32,7 @@ import {
 } from '../hooks/useWorkoutSessions';
 import {
     formatLoggedWeight,
+    formatWorkoutSetLoad,
     getExerciseNameForPlannedExercise,
     getLoggedSetsForPlannedExercise,
     getNextSetNumber
@@ -42,7 +45,7 @@ import {
     getOfflineWorkoutSetsForPlannedExercise
 } from '../lib/offline-workout';
 import { useOfflineWorkoutSync } from '../hooks/useOfflineWorkoutSync';
-import { buildExerciseHistory } from '../lib/exercise-history';
+import { buildExerciseHistory, getLatestExerciseSessionSets } from '../lib/exercise-history';
 
 type WorkoutSessionLoggerProps = {
     session: WorkoutSession
@@ -58,6 +61,38 @@ function optionalNumberFromInput(value: string) {
     const parsed = Number(value)
 
     return Number.isFinite(parsed) ? parsed : null
+}
+
+function formatOfflineWorkoutSetLoad(set: {
+    loadType?: WorkoutSetLoadType
+    weight: number | null
+    assistWeight?: number | null
+    addedWeight?: number | null
+    weightUnit: WeightUnit
+}) {
+    const loadType = set.loadType ?? 'weighted'
+
+    if (loadType === 'bodyweight') {
+        return 'Bodyweight'
+    }
+
+    if (loadType === 'no_weight') {
+        return 'No weight'
+    }
+
+    if (loadType === 'assisted') {
+        return set.assistWeight === null || typeof set.assistWeight === 'undefined'
+            ? 'Assisted'
+            : `Assisted ${set.assistWeight} ${set.weightUnit}`
+    }
+
+    if (loadType === 'added_weight') {
+        return set.addedWeight === null || typeof set.addedWeight === 'undefined'
+            ? 'Added weight'
+            : `+${set.addedWeight} ${set.weightUnit}`
+    }
+
+    return set.weight === null ? 'No weight' : `${set.weight} ${set.weightUnit}`
 }
 
 export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: WorkoutSessionLoggerProps) {
@@ -80,6 +115,9 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
 
     const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
     const [weight, setWeight] = useState('');
+    const [loadType, setLoadType] = useState<WorkoutSetLoadType>('weighted');
+    const [assistWeight, setAssistWeight] = useState('');
+    const [addedWeight, setAddedWeight] = useState('');
     const [weightUnit, setWeightUnit] = useState<WeightUnit>(preferredUnit);
     const [reps, setReps] = useState('');
     const [notes, setNotes] = useState('');
@@ -89,24 +127,58 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
     const [restTimerSeconds, setRestTimerSeconds] = useState(120);
     const [isRestTimerRunning, setIsRestTimerRunning] = useState(false);
     const [editingSetId, setEditingSetId] = useState<string | null>(null);
+    const [editingSetLoadType, setEditingSetLoadType] = useState<WorkoutSetLoadType>('weighted');
     const [editingSetWeight, setEditingSetWeight] = useState('');
+    const [editingSetAssistWeight, setEditingSetAssistWeight] = useState('');
+    const [editingSetAddedWeight, setEditingSetAddedWeight] = useState('');
     const [editingSetReps, setEditingSetReps] = useState('');
     const [editingSetNotes, setEditingSetNotes] = useState('');
+    const [sessionExerciseOverrides, setSessionExerciseOverrides] = useState<Record<string, string>>({});
 
     const activePlannedExercise = plannedExercises[activeExerciseIndex] ?? null;
+    const activeExerciseId = activePlannedExercise
+        ? sessionExerciseOverrides[activePlannedExercise.id] ?? activePlannedExercise.exercise_id
+        : null;
+    const activeExercise = activeExerciseId
+        ? exercises.find((exercise) => exercise.id === activeExerciseId) ?? null
+        : null;
+    const activeExerciseName = activePlannedExercise
+        ? activeExercise?.name ?? getExerciseNameForPlannedExercise(activePlannedExercise, exercises)
+        : 'No exercise selected';
+    const plannedExercise = activePlannedExercise
+        ? exercises.find((exercise) => exercise.id === activePlannedExercise.exercise_id) ?? null
+        : null;
+    const alternateExercises = activePlannedExercise
+        ? exercises.filter((exercise) => {
+            if (exercise.id === activePlannedExercise.exercise_id || exercise.id === activeExerciseId) {
+                return false;
+            }
+
+            const sameMuscleGroup =
+                plannedExercise?.muscle_group &&
+                exercise.muscle_group &&
+                plannedExercise.muscle_group.toLowerCase() === exercise.muscle_group.toLowerCase();
+            const sameEquipment =
+                plannedExercise?.equipment &&
+                exercise.equipment &&
+                plannedExercise.equipment.toLowerCase() === exercise.equipment.toLowerCase();
+
+            return Boolean(sameMuscleGroup || sameEquipment);
+        }).slice(0, 5)
+        : [];
 
     const exerciseHistory = useMemo(
         () =>
             buildExerciseHistory({
-                sets: allWorkoutSets,
+                sets: allWorkoutSets.filter((set) => set.workout_session_id !== session.id),
                 exercises,
                 unit: preferredUnit
             }),
-        [allWorkoutSets, exercises, preferredUnit]
+        [allWorkoutSets, exercises, preferredUnit, session.id]
     );
 
-    const activeExerciseHistory = activePlannedExercise
-        ? exerciseHistory.find((history) => history.exerciseId === activePlannedExercise.exercise_id) ?? null
+    const activeExerciseHistory = activeExerciseId
+        ? exerciseHistory.find((history) => history.exerciseId === activeExerciseId) ?? null
         : null;
 
     const lastExerciseSet = activeExerciseHistory?.latestSet ?? null;
@@ -120,9 +192,20 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         ? getOfflineWorkoutSetsForPlannedExercise(session.id, activePlannedExercise.id)
         : [];
 
+    const previousWorkoutSetsForRecommendation = activeExerciseId
+        ? getLatestExerciseSessionSets({
+            sets: allWorkoutSets,
+            exerciseId: activeExerciseId,
+            beforeSessionId: session.id,
+            onOrBeforeDate: session.session_date,
+        })
+        : [];
+
     const activeRecommendation = activePlannedExercise
-        ? buildRecommendationForExercise(activePlannedExercise, activeLoggedSets, preferredUnit)
+        ? buildRecommendationForExercise(activePlannedExercise, previousWorkoutSetsForRecommendation, preferredUnit)
         : null;
+
+    const activeSkippedSet = activeLoggedSets.find((set) => set.set_type === 'skipped' || !set.completed) ?? null;
 
     const completedExerciseCount = useMemo(
         () =>
@@ -283,14 +366,28 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
 
     function startEditingSet(set: {
         id: string;
+        load_type?: WorkoutSetLoadType | null;
         weight_kg: number | null;
+        assist_weight_kg?: number | null;
+        added_weight_kg?: number | null;
         reps: number | null;
         notes: string | null;
     }) {
         setEditingSetId(set.id);
+        setEditingSetLoadType(set.load_type ?? 'weighted');
         setEditingSetWeight(
             typeof set.weight_kg === 'number'
                 ? String(formatLoggedWeight(set.weight_kg, preferredUnit).replace(` ${preferredUnit}`, ''))
+                : ''
+        );
+        setEditingSetAssistWeight(
+            typeof set.assist_weight_kg === 'number'
+                ? String(formatLoggedWeight(set.assist_weight_kg, preferredUnit).replace(` ${preferredUnit}`, ''))
+                : ''
+        );
+        setEditingSetAddedWeight(
+            typeof set.added_weight_kg === 'number'
+                ? String(formatLoggedWeight(set.added_weight_kg, preferredUnit).replace(` ${preferredUnit}`, ''))
                 : ''
         );
         setEditingSetReps(typeof set.reps === 'number' ? String(set.reps) : '');
@@ -299,7 +396,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
 
     function cancelEditingSet() {
         setEditingSetId(null);
+        setEditingSetLoadType('weighted');
         setEditingSetWeight('');
+        setEditingSetAssistWeight('');
+        setEditingSetAddedWeight('');
         setEditingSetReps('');
         setEditingSetNotes('');
     }
@@ -313,10 +413,22 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         }
 
         const parsedWeight = editingSetWeight.trim() ? Number(editingSetWeight) : null;
+        const parsedAssistWeight = editingSetAssistWeight.trim() ? Number(editingSetAssistWeight) : null;
+        const parsedAddedWeight = editingSetAddedWeight.trim() ? Number(editingSetAddedWeight) : null;
         const parsedReps = editingSetReps.trim() ? Number(editingSetReps) : null;
 
         if (parsedWeight !== null && (!Number.isFinite(parsedWeight) || parsedWeight < 0)) {
             setErrorMessage('Enter a valid weight.');
+            return;
+        }
+
+        if (parsedAssistWeight !== null && (!Number.isFinite(parsedAssistWeight) || parsedAssistWeight < 0)) {
+            setErrorMessage('Enter a valid assistance weight.');
+            return;
+        }
+
+        if (parsedAddedWeight !== null && (!Number.isFinite(parsedAddedWeight) || parsedAddedWeight < 0)) {
+            setErrorMessage('Enter a valid added weight.');
             return;
         }
 
@@ -328,7 +440,10 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         try {
             await updateWorkoutSet.mutateAsync({
                 setId: editingSetId,
-                weight: parsedWeight,
+                loadType: editingSetLoadType,
+                weight: editingSetLoadType === 'weighted' ? parsedWeight : null,
+                assistWeight: editingSetLoadType === 'assisted' ? parsedAssistWeight : null,
+                addedWeight: editingSetLoadType === 'added_weight' ? parsedAddedWeight : null,
                 weightUnit: preferredUnit,
                 reps: parsedReps,
                 rpe: null,
@@ -368,10 +483,22 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         }
 
         const parsedWeight = optionalNumberFromInput(weight)
+        const parsedAssistWeight = optionalNumberFromInput(assistWeight)
+        const parsedAddedWeight = optionalNumberFromInput(addedWeight)
         const parsedReps = optionalNumberFromInput(reps)
 
         if (parsedReps === null || parsedReps < 0) {
             setErrorMessage('Enter reps for this set.')
+            return
+        }
+
+        if (loadType === 'assisted' && (parsedAssistWeight === null || parsedAssistWeight < 0)) {
+            setErrorMessage('Enter the assistance weight.')
+            return
+        }
+
+        if (loadType === 'added_weight' && (parsedAddedWeight === null || parsedAddedWeight < 0)) {
+            setErrorMessage('Enter the added weight.')
             return
         }
 
@@ -381,10 +508,13 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         const setPayload = {
             workoutSessionId: session.id,
             plannedExerciseId: activePlannedExercise.id,
-            exerciseId: activePlannedExercise.exercise_id,
+            exerciseId: activeExerciseId ?? activePlannedExercise.exercise_id,
             setNumber: nextSetNumber,
             setType: 'working' as const,
-            weight: parsedWeight,
+            loadType,
+            weight: loadType === 'weighted' ? parsedWeight : null,
+            assistWeight: loadType === 'assisted' ? parsedAssistWeight : null,
+            addedWeight: loadType === 'added_weight' ? parsedAddedWeight : null,
             weightUnit,
             reps: parsedReps,
             rpe: null,
@@ -408,10 +538,13 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                 userId: user.id,
                 workoutSessionId: session.id,
                 plannedExerciseId: activePlannedExercise.id,
-                exerciseId: activePlannedExercise.exercise_id,
+                exerciseId: activeExerciseId ?? activePlannedExercise.exercise_id,
                 setNumber: nextSetNumber,
                 setType: 'working',
-                weight: parsedWeight,
+                loadType,
+                weight: loadType === 'weighted' ? parsedWeight : null,
+                assistWeight: loadType === 'assisted' ? parsedAssistWeight : null,
+                addedWeight: loadType === 'added_weight' ? parsedAddedWeight : null,
                 weightUnit,
                 reps: parsedReps,
                 rpe: null,
@@ -424,9 +557,86 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
         }
 
         setWeight('')
+        setAssistWeight('')
+        setAddedWeight('')
         setReps('')
         setNotes('')
         startRestTimer(activePlannedExercise.rest_seconds)
+    }
+
+    async function handleSkipExercise() {
+        setErrorMessage(null)
+
+        if (!activePlannedExercise) {
+            return
+        }
+
+        const confirmed = window.confirm('Skip this exercise for this session only?')
+
+        if (!confirmed) {
+            return
+        }
+
+        const nextSetNumber =
+            getNextSetNumber(activePlannedExercise.id, loggedSets) + activeOfflineSets.length
+
+        try {
+            if (!offlineSync.isOnline || !user) {
+                throw new Error('Offline, saved locally')
+            }
+
+            await createSet.mutateAsync({
+                workoutSessionId: session.id,
+                plannedExerciseId: activePlannedExercise.id,
+                exerciseId: activePlannedExercise.exercise_id,
+                setNumber: nextSetNumber,
+                setType: 'skipped',
+                loadType: 'no_weight',
+                weight: null,
+                assistWeight: null,
+                addedWeight: null,
+                weightUnit,
+                reps: null,
+                rpe: null,
+                notes: 'Skipped during this session.',
+                completed: false,
+            })
+
+            if (canGoNext) {
+                goToNextExercise()
+            }
+        } catch (error) {
+            if (!user) {
+                setErrorMessage('You must be signed in to skip an exercise.')
+                return
+            }
+
+            addOfflineWorkoutSet({
+                localId: createLocalId(),
+                userId: user.id,
+                workoutSessionId: session.id,
+                plannedExerciseId: activePlannedExercise.id,
+                exerciseId: activePlannedExercise.exercise_id,
+                setNumber: nextSetNumber,
+                setType: 'skipped',
+                loadType: 'no_weight',
+                weight: null,
+                assistWeight: null,
+                addedWeight: null,
+                weightUnit,
+                reps: null,
+                rpe: null,
+                notes: 'Skipped during this session.',
+                createdAt: new Date().toISOString(),
+                syncError: error instanceof Error ? error.message : null
+            })
+
+            offlineSync.refreshPendingCount()
+
+            if (canGoNext) {
+                goToNextExercise()
+            }
+        }
     }
 
     async function handleCompleteWorkout() {
@@ -506,7 +716,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         </p>
                         <p className="mt-1 truncate text-sm font-bold text-stone-900 dark:text-stone-50">
                             {activePlannedExercise
-                                ? getExerciseNameForPlannedExercise(activePlannedExercise, exercises)
+                                ? activeExerciseName
                                 : 'No exercise selected'}
                         </p>
                     </div>
@@ -531,16 +741,30 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                 Exercise {activeExerciseNumber} of {totalExercises}
                             </p>
                             <h3 className="mt-1 text-lg font-bold">
-                                {getExerciseNameForPlannedExercise(activePlannedExercise, exercises)}
+                                {activeExerciseName}
                             </h3>
                         </div>
 
-                        {activeLoggedSets.length >= activePlannedExercise.planned_sets ? (
-                            <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
+                        {activeSkippedSet ? (
+                            <span className="max-w-[45%] shrink-0 whitespace-nowrap rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-900">
+                                Skipped
+                            </span>
+                        ) : activeLoggedSets.filter((set) => set.completed).length >= activePlannedExercise.planned_sets ? (
+                            <span className="max-w-[45%] shrink-0 whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
                                 Sets done
                             </span>
                         ) : null}
                     </div>
+
+                    {activeExerciseId && activeExerciseId !== activePlannedExercise.exercise_id ? (
+                        <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900">
+                            <p className="font-semibold">Session alternate</p>
+                            <p className="mt-1 leading-6">
+                                This session is logging {activeExerciseName} instead of{' '}
+                                {getExerciseNameForPlannedExercise(activePlannedExercise, exercises)}. Your saved plan is unchanged.
+                            </p>
+                        </div>
+                    ) : null}
 
                     <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
                         Target: {activePlannedExercise.planned_sets} sets
@@ -549,6 +773,9 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                             : ''}
                         {activePlannedExercise.target_rpe ? `, RPE ${activePlannedExercise.target_rpe}` : ''}
                         {activePlannedExercise.rest_seconds ? `, ${activePlannedExercise.rest_seconds}s rest` : ''}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-stone-500 dark:text-stone-400">
+                        Logged sets, extra sets, skips, and alternates are session-only. They do not change your saved program.
                     </p>
 
                     {activePlannedExercise.deload_rule ? (
@@ -621,6 +848,55 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         </div>
                     )}
 
+                    {alternateExercises.length > 0 ? (
+                        <details className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                            <summary className="cursor-pointer text-sm font-bold">
+                                Alternates for this session
+                            </summary>
+
+                            <div className="mt-3 grid gap-2">
+                                {alternateExercises.map((exercise) => (
+                                    <button
+                                        key={exercise.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setSessionExerciseOverrides((currentOverrides) => ({
+                                                ...currentOverrides,
+                                                [activePlannedExercise.id]: exercise.id,
+                                            }))
+                                        }}
+                                        className="flex min-h-10 items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-3 text-left text-sm transition hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+                                    >
+                                        <span className="min-w-0">
+                                            <span className="block truncate font-semibold">{exercise.name}</span>
+                                            <span className="block truncate text-xs text-stone-500 dark:text-stone-400">
+                                                {exercise.muscle_group || 'Similar movement'}
+                                                {exercise.equipment ? ` - ${exercise.equipment}` : ''}
+                                            </span>
+                                        </span>
+                                        <Replace className="size-4 shrink-0" />
+                                    </button>
+                                ))}
+
+                                {activeExerciseId !== activePlannedExercise.exercise_id ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSessionExerciseOverrides((currentOverrides) => {
+                                                const nextOverrides = { ...currentOverrides }
+                                                delete nextOverrides[activePlannedExercise.id]
+                                                return nextOverrides
+                                            })
+                                        }}
+                                        className="min-h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm font-semibold dark:border-neutral-800 dark:bg-neutral-950"
+                                    >
+                                        Use planned exercise
+                                    </button>
+                                ) : null}
+                            </div>
+                        </details>
+                    ) : null}
+
                     <div className="mt-3 rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-300">
@@ -661,18 +937,20 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                     </div>
 
                     <form onSubmit={handleLogSet} className="mt-4 grid gap-4">
-                        <div className="grid grid-cols-[1fr_90px] gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_110px]">
                             <label className="grid gap-2">
-                                <span className="text-sm font-semibold">Weight</span>
-                                <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.5"
-                                    value={weight}
-                                    onChange={(event) => setWeight(event.target.value)}
-                                    placeholder="Weight"
+                                <span className="text-sm font-semibold">Load type</span>
+                                <select
+                                    value={loadType}
+                                    onChange={(event) => setLoadType(event.target.value as WorkoutSetLoadType)}
                                     className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
-                                />
+                                >
+                                    <option value="weighted">Weighted</option>
+                                    <option value="bodyweight">Bodyweight</option>
+                                    <option value="no_weight">No weight</option>
+                                    <option value="assisted">Assisted</option>
+                                    <option value="added_weight">Added weight</option>
+                                </select>
                             </label>
 
                             <label className="grid gap-2">
@@ -687,6 +965,59 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                 </select>
                             </label>
                         </div>
+
+                        {loadType === 'weighted' ? (
+                            <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Weight</span>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.5"
+                                    value={weight}
+                                    onChange={(event) => setWeight(event.target.value)}
+                                    placeholder="Weight"
+                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                            </label>
+                        ) : null}
+
+                        {loadType === 'assisted' ? (
+                            <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Assistance</span>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.5"
+                                    value={assistWeight}
+                                    onChange={(event) => setAssistWeight(event.target.value)}
+                                    placeholder={`Assist weight in ${weightUnit}`}
+                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                            </label>
+                        ) : null}
+
+                        {loadType === 'added_weight' ? (
+                            <label className="grid gap-2">
+                                <span className="text-sm font-semibold">Added weight</span>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.5"
+                                    value={addedWeight}
+                                    onChange={(event) => setAddedWeight(event.target.value)}
+                                    placeholder={`Added weight in ${weightUnit}`}
+                                    className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                />
+                            </label>
+                        ) : null}
+
+                        {loadType === 'bodyweight' || loadType === 'no_weight' ? (
+                            <p className="rounded-xl bg-stone-50 p-3 text-sm text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                                {loadType === 'bodyweight'
+                                    ? 'This set will be logged as bodyweight.'
+                                    : 'This set will be logged with reps only.'}
+                            </p>
+                        ) : null}
 
                         <label className="grid gap-2">
                             <span className="text-sm font-semibold">Reps</span>
@@ -720,6 +1051,16 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                         </button>
                     </form>
 
+                    <button
+                        type="button"
+                        onClick={handleSkipExercise}
+                        disabled={createSet.isPending || Boolean(activeSkippedSet)}
+                        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                    >
+                        <SkipForward className="size-4" />
+                        {activeSkippedSet ? 'Exercise skipped' : 'Skip for this session'}
+                    </button>
+
                     <div className="mt-4 grid gap-2">
 
                         {activeLoggedSets.map((set) => {
@@ -735,6 +1076,23 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <label className="grid gap-2">
                                                     <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                        Load type
+                                                    </span>
+                                                    <select
+                                                        value={editingSetLoadType}
+                                                        onChange={(event) => setEditingSetLoadType(event.target.value as WorkoutSetLoadType)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    >
+                                                        <option value="weighted">Weighted</option>
+                                                        <option value="bodyweight">Bodyweight</option>
+                                                        <option value="no_weight">No weight</option>
+                                                        <option value="assisted">Assisted</option>
+                                                        <option value="added_weight">Added weight</option>
+                                                    </select>
+                                                </label>
+
+                                                <label className="grid gap-2">
+                                                    <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
                                                         Weight
                                                     </span>
                                                     <input
@@ -742,7 +1100,38 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                                         inputMode="decimal"
                                                         value={editingSetWeight}
                                                         step="0.5"
+                                                        disabled={editingSetLoadType !== 'weighted'}
                                                         onChange={(event) => setEditingSetWeight(event.target.value)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    />
+                                                </label>
+
+                                                <label className="grid gap-2">
+                                                    <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                        Assistance
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        value={editingSetAssistWeight}
+                                                        step="0.5"
+                                                        disabled={editingSetLoadType !== 'assisted'}
+                                                        onChange={(event) => setEditingSetAssistWeight(event.target.value)}
+                                                        className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                    />
+                                                </label>
+
+                                                <label className="grid gap-2">
+                                                    <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                        Added
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        value={editingSetAddedWeight}
+                                                        step="0.5"
+                                                        disabled={editingSetLoadType !== 'added_weight'}
+                                                        onChange={(event) => setEditingSetAddedWeight(event.target.value)}
                                                         className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                                                     />
                                                 </label>
@@ -797,7 +1186,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                                         <>
                                             <div className="flex items-center justify-between gap-3">
                                                 <span className="font-semibold">
-                                                    Set {set.set_number}: {formatLoggedWeight(set.weight_kg, preferredUnit)} x{' '}
+                                                    Set {set.set_number}: {formatWorkoutSetLoad(set, preferredUnit)} x{' '}
                                                     {set.reps ?? '--'}
                                                 </span>
 
@@ -844,7 +1233,7 @@ export function WorkoutSessionLogger({ session, workoutDay, onCompleted }: Worko
                             >
                                 <span className="font-semibold">Set {set.setNumber} pending</span>
                                 <span>
-                                    {set.weight ?? '--'} {set.weightUnit} x {set.reps ?? '--'} reps
+                                    {formatOfflineWorkoutSetLoad(set)} x {set.reps ?? '--'} reps
                                     {set.rpe ? ` @ RPE ${set.rpe}` : ''}
                                 </span>
                             </div>

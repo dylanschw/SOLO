@@ -12,7 +12,9 @@ export type ExerciseSetType = 'straight' | 'top_set_backoff' | 'warmup' | 'custo
 
 export type WorkoutSessionStatus = 'planned' | 'in_progress' | 'completed' | 'skipped'
 
-export type LoggedSetType = 'warmup' | 'working' | 'top' | 'backoff' | 'drop'
+export type LoggedSetType = 'warmup' | 'working' | 'top' | 'backoff' | 'drop' | 'skipped'
+
+export type WorkoutSetLoadType = 'weighted' | 'bodyweight' | 'no_weight' | 'assisted' | 'added_weight'
 
 export type Database = {
   public: {
@@ -488,7 +490,10 @@ export type Database = {
           exercise_id: string
           set_number: number
           set_type: LoggedSetType
+          load_type: WorkoutSetLoadType
           weight_kg: number | null
+          assist_weight_kg: number | null
+          added_weight_kg: number | null
           reps: number | null
           rpe: number | null
           completed: boolean
@@ -508,7 +513,10 @@ export type Database = {
           exercise_id: string
           set_number: number
           set_type?: LoggedSetType
+          load_type?: WorkoutSetLoadType
           weight_kg?: number | null
+          assist_weight_kg?: number | null
+          added_weight_kg?: number | null
           reps?: number | null
           rpe?: number | null
           completed?: boolean
@@ -528,7 +536,10 @@ export type Database = {
           exercise_id?: string
           set_number?: number
           set_type?: LoggedSetType
+          load_type?: WorkoutSetLoadType
           weight_kg?: number | null
+          assist_weight_kg?: number | null
+          added_weight_kg?: number | null
           reps?: number | null
           rpe?: number | null
           completed?: boolean
@@ -650,6 +661,55 @@ export type Database = {
           deleted_at?: string | null
           completed_at?: string | null
           skipped_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      daily_wellness_entries: {
+        Row: {
+          id: string
+          user_id: string
+          entry_date: string
+          water_goal_ml: number
+          water_logged_ml: number
+          creatine_completed: boolean
+          notes: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entry_date: string
+          water_goal_ml?: number
+          water_logged_ml?: number
+          creatine_completed?: boolean
+          notes?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entry_date?: string
+          water_goal_ml?: number
+          water_logged_ml?: number
+          creatine_completed?: boolean
+          notes?: string | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }

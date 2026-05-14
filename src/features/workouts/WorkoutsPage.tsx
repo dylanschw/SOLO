@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
 import { WorkoutCsvImport } from './components/WorkoutCsvImport'
+import { PreviousWorkoutCsvImport } from './components/PreviousWorkoutCsvImport'
+import { PremadeSplitPicker } from './components/PremadeSplitPicker'
 import { Link, useNavigate } from 'react-router-dom'
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { buildExerciseHistory } from './lib/exercise-history';
@@ -1031,7 +1033,11 @@ export function WorkoutsPage() {
       {
         activeSection === 'import' ? (
           <>
+            <PremadeSplitPicker onImported={refetchWorkoutData} />
+
             <WorkoutCsvImport onImported={refetchWorkoutData} />
+
+            <PreviousWorkoutCsvImport />
 
             <WorkoutTextImportWizard onImported={refetchWorkoutData} />
           </>
@@ -1812,7 +1818,7 @@ export function WorkoutsPage() {
                         {set.weight ?? '--'} {preferredUnit} x {set.reps ?? '--'}
                       </span>
                       <span className="text-xs text-stone-500 dark:text-stone-400">
-                        {new Date(set.createdAt).toLocaleDateString()}
+                        {new Date(`${set.sessionDate}T00:00:00`).toLocaleDateString()}
                       </span>
                     </div>
                   ))}

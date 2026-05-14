@@ -1,4 +1,4 @@
-import type { LoggedSetType, WeightUnit } from '../../../lib/supabase/types'
+import type { LoggedSetType, WeightUnit, WorkoutSetLoadType } from '../../../lib/supabase/types'
 
 const offlineWorkoutSetQueueKey = 'solo-offline-workout-set-queue'
 
@@ -10,7 +10,10 @@ export type OfflineWorkoutSet = {
     exerciseId: string
     setNumber: number
     setType: LoggedSetType
+    loadType?: WorkoutSetLoadType
     weight: number | null
+    assistWeight?: number | null
+    addedWeight?: number | null
     weightUnit: WeightUnit
     reps: number | null
     rpe: number | null
