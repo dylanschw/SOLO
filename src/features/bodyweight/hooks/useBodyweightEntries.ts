@@ -4,7 +4,9 @@ import {
     createBodyweightEntry,
     deleteBodyweightEntry,
     listBodyweightEntries,
-    type CreateBodyweightEntryInput
+    updateBodyweightEntry,
+    type CreateBodyweightEntryInput,
+    type UpdateBodyweightEntryInput
 } from '../lib/bodyweight'
 
 export function useBodyweightEntries() {
@@ -55,6 +57,27 @@ export function useDeleteBodyweightEntry() {
             }
 
             return deleteBodyweightEntry(entryId, user.id)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['bodyweight-entries', user?.id] })
+        }
+    })
+}
+
+export function useUpdateBodyweightEntry() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateBodyweightEntryInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update bodyweight entry without a signed-in user')
+            }
+
+            return updateBodyweightEntry({
+                ...input,
+                userId: user.id
+            })
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['bodyweight-entries', user?.id] })

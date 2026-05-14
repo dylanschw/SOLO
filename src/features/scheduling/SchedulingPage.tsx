@@ -1,7 +1,9 @@
 import {
     CalendarCheck,
     CheckCircle,
+    Droplets,
     Pencil,
+    Pill,
     Plus,
     RotateCcw,
     Save,
@@ -9,7 +11,7 @@ import {
     Trash2,
     X
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
     useArchiveRoutineItem,
@@ -17,12 +19,14 @@ import {
     useCreateDailyTask,
     useCreateRoutineItem,
     useDailyTasks,
+    useDailyWellnessEntry,
     useDeleteDailyTask,
     useGenerateTodayTasksFromRoutine,
     useRoutineItems,
     useUpdateDailyTask,
     useUpdateDailyTaskStatus,
-    useUpdateRoutineItem
+    useUpdateRoutineItem,
+    useUpsertDailyWellnessEntry
 } from './hooks/useScheduling'
 
 type SchedulingSection = 'today' | 'routine' | 'history'
@@ -53,6 +57,9 @@ export function SchedulingPage() {
     const [routineNotes, setRoutineNotes] = useState('')
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [statusMessage, setStatusMessage] = useState<string | null>(null)
+    const [waterGoalMl, setWaterGoalMl] = useState('3000')
+    const [waterLoggedMl, setWaterLoggedMl] = useState('0')
+    const [creatineCompleted, setCreatineCompleted] = useState(false)
 
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
     const [editingTaskTitle, setEditingTaskTitle] = useState('')
@@ -68,6 +75,7 @@ export function SchedulingPage() {
     const routineItemsQuery = useRoutineItems()
     const todayTasksQuery = useDailyTasks(today)
     const allTasksQuery = useDailyTasks()
+    const dailyWellnessQuery = useDailyWellnessEntry(today)
 
     const createTask = useCreateDailyTask()
     const createRoutineItem = useCreateRoutineItem()
@@ -78,23 +86,44 @@ export function SchedulingPage() {
     const updateTask = useUpdateDailyTask()
     const updateRoutineItem = useUpdateRoutineItem()
     const carryUnfinishedTasks = useCarryUnfinishedTasksToToday()
+    const upsertDailyWellness = useUpsertDailyWellnessEntry()
 
     const routineItems = routineItemsQuery.data ?? []
     const todayTasks = todayTasksQuery.data ?? []
     const allTasks = allTasksQuery.data ?? []
+    const dailyWellness = dailyWellnessQuery.data ?? null
+
+    useEffect(() => {
+        if (!dailyWellness) {
+            return
+        }
+
+        setWaterGoalMl(String(dailyWellness.water_goal_ml))
+        setWaterLoggedMl(String(dailyWellness.water_logged_ml))
+        setCreatineCompleted(dailyWellness.creatine_completed)
+    }, [dailyWellness])
 
     const completionSummary = useMemo(() => {
         const completed = todayTasks.filter((task) => task.status === 'completed').length
         const skipped = todayTasks.filter((task) => task.status === 'skipped').length
         const pending = todayTasks.filter((task) => task.status === 'pending').length
 
+        const waterComplete = dailyWellness
+            ? dailyWellness.water_goal_ml === 0 || dailyWellness.water_logged_ml >= dailyWellness.water_goal_ml
+            : false
+        const wellnessCompleted = Number(waterComplete) + Number(dailyWellness?.creatine_completed ?? false)
+        const wellnessTotal = 2
+
         return {
             completed,
             skipped,
             pending,
-            total: todayTasks.length
+            total: todayTasks.length,
+            wellnessCompleted,
+            wellnessTotal,
+            waterComplete
         }
-    }, [todayTasks])
+    }, [dailyWellness, todayTasks])
 
     const tasksGroupedByDate = useMemo(() => {
         return allTasks.reduce<Record<string, typeof allTasks>>((groups, task) => {
@@ -192,6 +221,60 @@ export function SchedulingPage() {
             )
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Could not carry tasks forward.')
+        }
+    }
+
+    async function handleSaveDailyWellness(event?: FormEvent<HTMLFormElement>) {
+        event?.preventDefault()
+        setErrorMessage(null)
+        setStatusMessage(null)
+
+        const parsedWaterGoal = Number(waterGoalMl)
+        const parsedWaterLogged = Number(waterLoggedMl)
+
+        if (!Number.isFinite(parsedWaterGoal) || parsedWaterGoal < 0) {
+            setErrorMessage('Enter a valid water goal.')
+            return
+        }
+
+        if (!Number.isFinite(parsedWaterLogged) || parsedWaterLogged < 0) {
+            setErrorMessage('Enter a valid water amount.')
+            return
+        }
+
+        try {
+            await upsertDailyWellness.mutateAsync({
+                entryDate: today,
+                waterGoalMl: parsedWaterGoal,
+                waterLoggedMl: parsedWaterLogged,
+                creatineCompleted,
+                notes: null
+            })
+
+            setStatusMessage('Daily wellness saved.')
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not save daily wellness.')
+        }
+    }
+
+    async function handleAddWater(amountMl: number) {
+        const currentWater = Number(waterLoggedMl)
+        const nextWater = Math.max(0, (Number.isFinite(currentWater) ? currentWater : 0) + amountMl)
+
+        setWaterLoggedMl(String(nextWater))
+
+        try {
+            const parsedWaterGoal = Number(waterGoalMl)
+
+            await upsertDailyWellness.mutateAsync({
+                entryDate: today,
+                waterGoalMl: Number.isFinite(parsedWaterGoal) ? parsedWaterGoal : 3000,
+                waterLoggedMl: nextWater,
+                creatineCompleted,
+                notes: null
+            })
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not update water.')
         }
     }
 
@@ -368,7 +451,7 @@ export function SchedulingPage() {
 
             {activeSection === 'today' ? (
                 <>
-                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
+                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-5">
                         <article className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
                             <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Complete</p>
                             <p className="mt-2 text-2xl font-bold">{completionSummary.completed}</p>
@@ -388,7 +471,86 @@ export function SchedulingPage() {
                             <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Total</p>
                             <p className="mt-2 text-2xl font-bold">{completionSummary.total}</p>
                         </article>
+
+                        <article className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+                            <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Wellness</p>
+                            <p className="mt-2 text-2xl font-bold">
+                                {completionSummary.wellnessCompleted}/{completionSummary.wellnessTotal}
+                            </p>
+                        </article>
                     </div>
+
+                    <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+                        <div className="flex items-center gap-3">
+                            <Droplets className="size-5 text-emerald-600" />
+                            <h2 className="text-xl font-bold">Water and creatine</h2>
+                        </div>
+
+                        <form onSubmit={handleSaveDailyWellness} className="mt-5 grid gap-4">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label className="grid gap-2">
+                                    <span className="text-sm font-semibold">Water logged (ml)</span>
+                                    <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        value={waterLoggedMl}
+                                        onChange={(event) => setWaterLoggedMl(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                    />
+                                </label>
+
+                                <label className="grid gap-2">
+                                    <span className="text-sm font-semibold">Water goal (ml)</span>
+                                    <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        value={waterGoalMl}
+                                        onChange={(event) => setWaterGoalMl(event.target.value)}
+                                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {[250, 500, 750, 1000].map((amountMl) => (
+                                    <button
+                                        key={amountMl}
+                                        type="button"
+                                        onClick={() => handleAddWater(amountMl)}
+                                        disabled={upsertDailyWellness.isPending}
+                                        className="min-h-10 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                                    >
+                                        +{amountMl} ml
+                                    </button>
+                                ))}
+                            </div>
+
+                            <label className="flex min-h-12 items-center gap-3 rounded-xl border border-stone-200 px-4 dark:border-neutral-700">
+                                <input
+                                    type="checkbox"
+                                    checked={creatineCompleted}
+                                    onChange={(event) => setCreatineCompleted(event.target.checked)}
+                                />
+                                <Pill className="size-4 text-emerald-600" />
+                                <span className="text-sm font-semibold">Creatine taken today</span>
+                            </label>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                                <div className="min-w-0 rounded-xl bg-stone-50 p-3 text-sm text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                                    Water is {completionSummary.waterComplete ? 'complete' : 'not complete'} for today.
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={upsertDailyWellness.isPending}
+                                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                    <CheckCircle className="size-4" />
+                                    Save
+                                </button>
+                            </div>
+                        </form>
+                    </article>
 
                     <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
                         <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
@@ -530,7 +692,7 @@ export function SchedulingPage() {
                                                 <div className="min-w-0">
                                                     <p className="font-bold">{task.title}</p>
                                                     <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                                                        {task.task_date} · {task.category || 'General'} · {task.status}
+                                                        {task.task_date} - {task.category || 'General'} - {task.status}
                                                     </p>
                                                     {task.notes ? (
                                                         <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
@@ -705,7 +867,7 @@ export function SchedulingPage() {
                                         <div className="min-w-0">
                                             <p className="font-bold">{item.title}</p>
                                             <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                                                {item.category || 'General'} · daily
+                                                {item.category || 'General'} - daily
                                             </p>
                                             {item.notes ? (
                                                 <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">

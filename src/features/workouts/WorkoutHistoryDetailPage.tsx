@@ -12,6 +12,8 @@ import {
     useUpdateWorkoutSet,
     useWorkoutSets
 } from './hooks/useWorkoutSessions';
+import { formatWorkoutSetLoad } from './lib/session-view';
+import type { WorkoutSetLoadType } from '../../lib/supabase/types';
 
 function formatDate(value: string | null) {
     if (!value) {
@@ -68,7 +70,10 @@ export function WorkoutHistoryDetailPage() {
     const workoutSets = workoutSetsQuery.data ?? [];
 
     const [editingSetId, setEditingSetId] = useState<string | null>(null);
+    const [editingSetLoadType, setEditingSetLoadType] = useState<WorkoutSetLoadType>('weighted');
     const [editingSetWeight, setEditingSetWeight] = useState('');
+    const [editingSetAssistWeight, setEditingSetAssistWeight] = useState('');
+    const [editingSetAddedWeight, setEditingSetAddedWeight] = useState('');
     const [editingSetReps, setEditingSetReps] = useState('');
     const [editingSetNotes, setEditingSetNotes] = useState('');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -93,13 +98,23 @@ export function WorkoutHistoryDetailPage() {
 
     function startEditingSet(set: {
         id: string;
+        load_type?: WorkoutSetLoadType | null;
         weight_kg: number | null;
+        assist_weight_kg?: number | null;
+        added_weight_kg?: number | null;
         reps: number | null;
         notes: string | null;
     }) {
         setEditingSetId(set.id);
+        setEditingSetLoadType(set.load_type ?? 'weighted');
         setEditingSetWeight(
             typeof set.weight_kg === 'number' ? String(formatWeight(set.weight_kg, preferredUnit)) : ''
+        );
+        setEditingSetAssistWeight(
+            typeof set.assist_weight_kg === 'number' ? String(formatWeight(set.assist_weight_kg, preferredUnit)) : ''
+        );
+        setEditingSetAddedWeight(
+            typeof set.added_weight_kg === 'number' ? String(formatWeight(set.added_weight_kg, preferredUnit)) : ''
         );
         setEditingSetReps(typeof set.reps === 'number' ? String(set.reps) : '');
         setEditingSetNotes(set.notes ?? '');
@@ -107,7 +122,10 @@ export function WorkoutHistoryDetailPage() {
 
     function cancelEditingSet() {
         setEditingSetId(null);
+        setEditingSetLoadType('weighted');
         setEditingSetWeight('');
+        setEditingSetAssistWeight('');
+        setEditingSetAddedWeight('');
         setEditingSetReps('');
         setEditingSetNotes('');
     }
@@ -121,10 +139,22 @@ export function WorkoutHistoryDetailPage() {
         }
 
         const parsedWeight = editingSetWeight.trim() ? Number(editingSetWeight) : null;
+        const parsedAssistWeight = editingSetAssistWeight.trim() ? Number(editingSetAssistWeight) : null;
+        const parsedAddedWeight = editingSetAddedWeight.trim() ? Number(editingSetAddedWeight) : null;
         const parsedReps = editingSetReps.trim() ? Number(editingSetReps) : null;
 
         if (parsedWeight !== null && (!Number.isFinite(parsedWeight) || parsedWeight < 0)) {
             setErrorMessage('Enter a valid weight.');
+            return;
+        }
+
+        if (parsedAssistWeight !== null && (!Number.isFinite(parsedAssistWeight) || parsedAssistWeight < 0)) {
+            setErrorMessage('Enter a valid assistance weight.');
+            return;
+        }
+
+        if (parsedAddedWeight !== null && (!Number.isFinite(parsedAddedWeight) || parsedAddedWeight < 0)) {
+            setErrorMessage('Enter a valid added weight.');
             return;
         }
 
@@ -136,7 +166,10 @@ export function WorkoutHistoryDetailPage() {
         try {
             await updateWorkoutSet.mutateAsync({
                 setId: editingSetId,
-                weight: parsedWeight,
+                loadType: editingSetLoadType,
+                weight: editingSetLoadType === 'weighted' ? parsedWeight : null,
+                assistWeight: editingSetLoadType === 'assisted' ? parsedAssistWeight : null,
+                addedWeight: editingSetLoadType === 'added_weight' ? parsedAddedWeight : null,
                 weightUnit: preferredUnit,
                 reps: parsedReps,
                 rpe: null,
@@ -327,6 +360,23 @@ export function WorkoutHistoryDetailPage() {
                                                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                         <label className="grid gap-2">
                                                             <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                                Load type
+                                                            </span>
+                                                            <select
+                                                                value={editingSetLoadType}
+                                                                onChange={(event) => setEditingSetLoadType(event.target.value as WorkoutSetLoadType)}
+                                                                className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                            >
+                                                                <option value="weighted">Weighted</option>
+                                                                <option value="bodyweight">Bodyweight</option>
+                                                                <option value="no_weight">No weight</option>
+                                                                <option value="assisted">Assisted</option>
+                                                                <option value="added_weight">Added weight</option>
+                                                            </select>
+                                                        </label>
+
+                                                        <label className="grid gap-2">
+                                                            <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
                                                                 Weight
                                                             </span>
                                                             <input
@@ -334,7 +384,38 @@ export function WorkoutHistoryDetailPage() {
                                                                 inputMode="decimal"
                                                                 step="0.5"
                                                                 value={editingSetWeight}
+                                                                disabled={editingSetLoadType !== 'weighted'}
                                                                 onChange={(event) => setEditingSetWeight(event.target.value)}
+                                                                className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                            />
+                                                        </label>
+
+                                                        <label className="grid gap-2">
+                                                            <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                                Assistance
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                inputMode="decimal"
+                                                                step="0.5"
+                                                                value={editingSetAssistWeight}
+                                                                disabled={editingSetLoadType !== 'assisted'}
+                                                                onChange={(event) => setEditingSetAssistWeight(event.target.value)}
+                                                                className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                                                            />
+                                                        </label>
+
+                                                        <label className="grid gap-2">
+                                                            <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                                                Added
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                inputMode="decimal"
+                                                                step="0.5"
+                                                                value={editingSetAddedWeight}
+                                                                disabled={editingSetLoadType !== 'added_weight'}
+                                                                onChange={(event) => setEditingSetAddedWeight(event.target.value)}
                                                                 className="min-h-11 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                                                             />
                                                         </label>
@@ -395,7 +476,7 @@ export function WorkoutHistoryDetailPage() {
                                                     </div>
 
                                                     <p className="mt-2 text-base font-bold">
-                                                        {formatWeight(set.weight_kg, preferredUnit)} {preferredUnit} x {set.reps ?? '--'}
+                                                        {formatWorkoutSetLoad(set, preferredUnit)} x {set.reps ?? '--'}
                                                     </p>
 
                                                     {set.rpe ? (

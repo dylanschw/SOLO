@@ -3,6 +3,7 @@ import type { Database } from '../../../lib/supabase/types'
 
 export type RoutineItem = Database['public']['Tables']['routine_items']['Row']
 export type DailyTask = Database['public']['Tables']['daily_tasks']['Row']
+export type DailyWellnessEntry = Database['public']['Tables']['daily_wellness_entries']['Row']
 
 export type CreateRoutineItemInput = {
     userId: string
@@ -36,6 +37,15 @@ export type UpdateDailyTaskInput = {
     taskDate: string
     title: string
     category?: string | null
+    notes?: string | null
+}
+
+export type UpsertDailyWellnessEntryInput = {
+    userId: string
+    entryDate: string
+    waterGoalMl: number
+    waterLoggedMl: number
+    creatineCompleted: boolean
     notes?: string | null
 }
 
@@ -345,6 +355,53 @@ export async function generateTodayTasksFromRoutine(userId: string, taskDate: st
             }))
         )
         .select()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function getDailyWellnessEntry(userId: string, entryDate: string) {
+    const { data, error } = await supabase
+        .from('daily_wellness_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('entry_date', entryDate)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function upsertDailyWellnessEntry(input: UpsertDailyWellnessEntryInput) {
+    const waterGoalMl = Math.max(0, Math.round(input.waterGoalMl))
+    const waterLoggedMl = Math.max(0, Math.round(input.waterLoggedMl))
+
+    const { data, error } = await supabase
+        .from('daily_wellness_entries')
+        .upsert(
+            {
+                user_id: input.userId,
+                entry_date: input.entryDate,
+                water_goal_ml: waterGoalMl,
+                water_logged_ml: waterLoggedMl,
+                creatine_completed: input.creatineCompleted,
+                notes: cleanText(input.notes),
+                client_id: `${input.userId}-${input.entryDate}`,
+                sync_status: 'synced' as const
+            },
+            {
+                onConflict: 'user_id,entry_date'
+            }
+        )
+        .select()
+        .single()
 
     if (error) {
         throw error

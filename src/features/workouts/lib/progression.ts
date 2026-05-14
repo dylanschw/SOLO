@@ -1,7 +1,7 @@
 import type { WeightUnit } from '../../../lib/supabase/types'
 import { convertWeight, roundToOneDecimal } from '../../../lib/utils/units'
 import type { PlannedExercise } from './workouts'
-import type { WorkoutSet } from './workout-sessions'
+import type { WorkoutSet, WorkoutSetWithSessionDate } from './workout-sessions'
 
 export type ProgressionRecommendationKind =
     | 'no_data'
@@ -36,6 +36,9 @@ export type DeloadRecommendation = {
 
 type PerformanceSet = {
     weightKg: number | null
+    assistWeightKg?: number | null
+    addedWeightKg?: number | null
+    loadType?: string | null
     reps: number | null
     rpe: number | null
     setType: string
@@ -52,7 +55,7 @@ function getWorkingSets(sets: PerformanceSet[]) {
 
 function getHeaviestWeightKg(sets: PerformanceSet[]) {
     const weights = sets
-        .map((set) => set.weightKg)
+        .map((set) => (set.loadType === 'added_weight' ? set.addedWeightKg ?? set.weightKg : set.weightKg))
         .filter((weight): weight is number => typeof weight === 'number' && Number.isFinite(weight))
 
     if (weights.length === 0) {
@@ -132,6 +135,19 @@ export function recommendDynamicDoubleProgression(input: {
     const averageRpe = getAverageRpe(workingSets)
 
     if (workingSets.length === 0) {
+        const hasMissedWork = input.sets.some((set) => !set.completed || set.setType === 'skipped')
+
+        if (hasMissedWork) {
+            return {
+                kind: 'review_form',
+                title: 'Repeat after missed work',
+                nextWeight: null,
+                nextReps: `${minReps}-${maxReps}`,
+                explanation:
+                    'The last session for this exercise was skipped or incomplete. Repeat the planned target before increasing.'
+            }
+        }
+
         return {
             kind: 'no_data',
             title: 'Log sets first',
@@ -145,10 +161,75 @@ export function recommendDynamicDoubleProgression(input: {
     const completedEnoughSets = countedSets.length >= plannedSets
     const allHitTopOfRange = completedEnoughSets && countedSets.every((set) => (set.reps ?? 0) >= maxReps)
     const anyBelowMinRange = countedSets.some((set) => (set.reps ?? 0) < minReps)
+    const allAssistedSets = countedSets.length > 0 && countedSets.every((set) => set.loadType === 'assisted')
+    const allUnloadedSets = countedSets.length > 0 && countedSets.every(isUnloadedSet)
     const rpeTooHigh =
         typeof targetRpe === 'number' &&
         typeof averageRpe === 'number' &&
         averageRpe > targetRpe + 1
+
+    if (allAssistedSets) {
+        const currentAssistanceKg = getCurrentAssistanceKg(countedSets)
+
+        if (currentAssistanceKg === null) {
+            return {
+                kind: 'review_form',
+                title: 'Review assisted work',
+                nextWeight: null,
+                nextReps: `${minReps}-${maxReps}`,
+                explanation:
+                    'Assisted sets were logged without an assistance weight. Add the assist amount to make future recommendations smarter.'
+            }
+        }
+
+        if (anyBelowMinRange) {
+            return {
+                kind: 'reduce_weight',
+                title: 'Use a little more assistance',
+                nextWeight: roundToOneDecimal(
+                    convertWeight(currentAssistanceKg + convertIncrementToKg(weightIncrement, input.unit), 'kg', input.unit)
+                ),
+                nextReps: `${minReps}-${maxReps}`,
+                explanation:
+                    'At least one assisted set missed the rep range. A bit more assistance can help rebuild reps cleanly.'
+            }
+        }
+
+        if (allHitTopOfRange) {
+            return {
+                kind: 'increase_weight',
+                title: 'Reduce assistance next time',
+                nextWeight: roundToOneDecimal(
+                    convertWeight(Math.max(0, currentAssistanceKg - convertIncrementToKg(weightIncrement, input.unit)), 'kg', input.unit)
+                ),
+                nextReps: `${minReps}-${maxReps}`,
+                explanation:
+                    'You hit the top of the rep range across the planned assisted sets. Reducing assistance is the next progression step.'
+            }
+        }
+
+        return {
+            kind: 'repeat_weight',
+            title: 'Repeat this assistance',
+            nextWeight: roundToOneDecimal(convertWeight(currentAssistanceKg, 'kg', input.unit)),
+            nextReps: `${minReps}-${maxReps}`,
+            explanation:
+                'Keep the same assistance and try to add reps until all planned sets reach the top of the range.'
+        }
+    }
+
+    if (allUnloadedSets) {
+        return {
+            kind: allHitTopOfRange ? 'review_form' : 'repeat_weight',
+            title: allHitTopOfRange ? 'Progress the variation' : 'Add reps first',
+            nextWeight: null,
+            nextReps: `${minReps}-${maxReps}`,
+            explanation:
+                allHitTopOfRange
+                    ? 'You hit the rep target without external load. Progress by choosing a harder variation, adding tempo, or adding load if appropriate.'
+                    : 'Keep the same bodyweight or no-weight movement and build reps across all planned sets.'
+        }
+    }
 
     if (anyBelowMinRange && heaviestWeightKg !== null) {
         return {
@@ -208,12 +289,15 @@ export function recommendDynamicDoubleProgression(input: {
 
 export function buildRecommendationForExercise(
     plannedExercise: PlannedExercise,
-    loggedSets: WorkoutSet[],
+    loggedSets: Array<WorkoutSet | WorkoutSetWithSessionDate>,
     unit: WeightUnit
 ) {
     return recommendDynamicDoubleProgression({
         sets: loggedSets.map((set) => ({
             weightKg: set.weight_kg,
+            assistWeightKg: set.assist_weight_kg,
+            addedWeightKg: set.added_weight_kg,
+            loadType: set.load_type,
             reps: set.reps,
             rpe: set.rpe,
             setType: set.set_type,
@@ -225,4 +309,21 @@ export function buildRecommendationForExercise(
         targetRpe: plannedExercise.target_rpe,
         unit
     })
+}
+
+function getCurrentAssistanceKg(sets: PerformanceSet[]) {
+    const assistanceWeights = sets
+        .filter((set) => set.loadType === 'assisted')
+        .map((set) => set.assistWeightKg ?? set.weightKg)
+        .filter((weight): weight is number => typeof weight === 'number' && Number.isFinite(weight))
+
+    if (assistanceWeights.length === 0) {
+        return null
+    }
+
+    return Math.min(...assistanceWeights)
+}
+
+function isUnloadedSet(set: PerformanceSet) {
+    return set.loadType === 'bodyweight' || set.loadType === 'no_weight'
 }

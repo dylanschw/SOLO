@@ -13,7 +13,10 @@ function createSet(overrides: Partial<WorkoutSet>): WorkoutSet {
         exercise_id: 'exercise-1',
         set_number: 1,
         set_type: 'working',
+        load_type: 'weighted',
         weight_kg: 100,
+        assist_weight_kg: null,
+        added_weight_kg: null,
         reps: 10,
         rpe: null,
         completed: true,
@@ -74,6 +77,38 @@ describe('exercise history utilities', () => {
         expect(history[0].totalSets).toBe(2);
         expect(history[0].latestSet?.id).toBe('set-2');
         expect(history[0].bestWeightSet?.weight).toBe(110);
+    });
+
+    it('sorts latest sets by workout session date when available', () => {
+        const history = buildExerciseHistory({
+            sets: [
+                {
+                    ...createSet({
+                        id: 'set-newer-created',
+                        weight_kg: 120,
+                        created_at: '2026-01-10T12:00:00.000Z',
+                    }),
+                    workout_sessions: {
+                        session_date: '2026-01-01',
+                    },
+                },
+                {
+                    ...createSet({
+                        id: 'set-newer-session',
+                        weight_kg: 100,
+                        created_at: '2026-01-02T12:00:00.000Z',
+                    }),
+                    workout_sessions: {
+                        session_date: '2026-01-09',
+                    },
+                },
+            ],
+            exercises,
+            unit: 'kg',
+        });
+
+        expect(history[0].latestSet?.id).toBe('set-newer-session');
+        expect(history[0].chartPoints.at(-1)?.date).toContain('Jan');
     });
 
     it('ignores deleted and incomplete sets', () => {

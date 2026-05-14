@@ -85,6 +85,7 @@ export function useCreateWorkoutSet() {
         },
         onSuccess: (_set, variables) => {
             queryClient.invalidateQueries({ queryKey: ['workout-sets', user?.id, variables.workoutSessionId] })
+            queryClient.invalidateQueries({ queryKey: ['all-workout-sets', user?.id] })
             queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] })
         }
     })
@@ -122,6 +123,8 @@ export function useDeleteWorkoutSession() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workout-sessions', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['workout-sets', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['all-workout-sets', user?.id] });
         },
     });
 }

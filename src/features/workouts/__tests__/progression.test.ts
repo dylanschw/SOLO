@@ -85,6 +85,87 @@ describe('progression recommendations', () => {
         expect(recommendation.nextWeight).toBe(95)
     })
 
+    it('recommends reducing assistance after assisted sets hit the top of the range', () => {
+        const recommendation = recommendDynamicDoubleProgression({
+            sets: [
+                {
+                    weightKg: null,
+                    assistWeightKg: 27.22,
+                    loadType: 'assisted',
+                    reps: 10,
+                    rpe: 8,
+                    setType: 'working',
+                    completed: true
+                },
+                {
+                    weightKg: null,
+                    assistWeightKg: 27.22,
+                    loadType: 'assisted',
+                    reps: 10,
+                    rpe: 8,
+                    setType: 'working',
+                    completed: true
+                }
+            ],
+            plannedSets: 2,
+            minReps: 8,
+            maxReps: 10,
+            targetRpe: 8,
+            unit: 'lb',
+            weightIncrement: 5
+        })
+
+        expect(recommendation.kind).toBe('increase_weight')
+        expect(recommendation.title).toMatch(/reduce assistance/i)
+        expect(recommendation.nextWeight).toBe(55)
+    })
+
+    it('keeps no-weight progressions focused on reps or harder variations', () => {
+        const recommendation = recommendDynamicDoubleProgression({
+            sets: [
+                {
+                    weightKg: null,
+                    loadType: 'no_weight',
+                    reps: 15,
+                    rpe: null,
+                    setType: 'working',
+                    completed: true
+                }
+            ],
+            plannedSets: 1,
+            minReps: 10,
+            maxReps: 15,
+            targetRpe: null,
+            unit: 'lb'
+        })
+
+        expect(recommendation.kind).toBe('review_form')
+        expect(recommendation.nextWeight).toBeNull()
+    })
+
+    it('does not increase after skipped work', () => {
+        const recommendation = recommendDynamicDoubleProgression({
+            sets: [
+                {
+                    weightKg: null,
+                    loadType: 'no_weight',
+                    reps: null,
+                    rpe: null,
+                    setType: 'skipped',
+                    completed: false
+                }
+            ],
+            plannedSets: 3,
+            minReps: 8,
+            maxReps: 12,
+            targetRpe: 8,
+            unit: 'lb'
+        })
+
+        expect(recommendation.kind).toBe('review_form')
+        expect(recommendation.title).toMatch(/missed work/i)
+    })
+
     it('calculates backoff weight', () => {
         expect(calculateBackoffWeight(100, 10)).toBe(90)
     })

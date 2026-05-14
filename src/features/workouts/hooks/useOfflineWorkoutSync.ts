@@ -49,7 +49,10 @@ export function useOfflineWorkoutSync(sessionId: string | null) {
                     exerciseId: pendingSet.exerciseId,
                     setNumber: pendingSet.setNumber,
                     setType: pendingSet.setType,
+                    loadType: pendingSet.loadType ?? 'weighted',
                     weight: pendingSet.weight,
+                    assistWeight: pendingSet.assistWeight ?? null,
+                    addedWeight: pendingSet.addedWeight ?? null,
                     weightUnit: pendingSet.weightUnit,
                     reps: pendingSet.reps,
                     rpe: pendingSet.rpe,
@@ -67,6 +70,7 @@ export function useOfflineWorkoutSync(sessionId: string | null) {
         }
 
         await queryClient.invalidateQueries({ queryKey: ['workout-sets', user.id, sessionId] })
+        await queryClient.invalidateQueries({ queryKey: ['all-workout-sets', user.id] })
         await queryClient.invalidateQueries({ queryKey: ['workout-sessions', user.id] })
 
         refreshPendingCount()
