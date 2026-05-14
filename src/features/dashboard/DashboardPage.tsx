@@ -5,18 +5,25 @@ import {
   ChevronRight,
   Dumbbell,
   Flame,
+  HeartPulse,
   ListChecks,
   Scale,
   Target,
   TrendingUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ActivityHeatmap } from '../../components/ui/ActivityHeatmap';
 import { useAuth } from '../auth/hooks/useAuth';
 import { useBodyweightEntries } from '../bodyweight/hooks/useBodyweightEntries';
+import { useGoalTargets } from '../goals/hooks/useGoals';
+import { useHealthMetricEntries } from '../health/hooks/useHealthMetrics';
+import { getLatestHealthMetric } from '../health/lib/health-metrics';
 import { useNutritionLogs, useActiveNutritionTarget } from '../nutrition/hooks/useNutrition';
 import { useProfile } from '../profile/hooks/useProfile';
+import { useDailyTasks } from '../scheduling/hooks/useScheduling';
 import { useActiveWorkoutProgram, useWorkoutDays } from '../workouts/hooks/useWorkouts';
 import { useWorkoutSessions } from '../workouts/hooks/useWorkoutSessions';
+import { buildActivityHeatmap, countActivityByDate } from './lib/activity-heatmap';
 import { buildDailyGoalSummary, findLogForDate } from './lib/daily-goals';
 
 function todayDate() {
@@ -51,6 +58,14 @@ function formatBodyweightValue(value: number | null, unit: string) {
   return `${value} ${unit}`;
 }
 
+function formatHealthValue(value: number | null, unit: string) {
+  if (value === null) {
+    return '--';
+  }
+
+  return `${Number.isInteger(value) ? value : value.toFixed(1)} ${unit}`;
+}
+
 export function DashboardPage() {
   const { user } = useAuth();
   const profileQuery = useProfile();
@@ -59,6 +74,9 @@ export function DashboardPage() {
   const nutritionLogsQuery = useNutritionLogs();
   const nutritionTargetQuery = useActiveNutritionTarget();
   const bodyweightEntriesQuery = useBodyweightEntries();
+  const goalTargetsQuery = useGoalTargets();
+  const healthMetricEntriesQuery = useHealthMetricEntries();
+  const dailyTasksQuery = useDailyTasks();
 
   const profile = profileQuery.data;
   const activeProgram = activeProgramQuery.data;
@@ -73,6 +91,11 @@ export function DashboardPage() {
   const nutritionLogs = nutritionLogsQuery.data ?? [];
   const nutritionTarget = nutritionTargetQuery.data ?? null;
   const bodyweightEntries = bodyweightEntriesQuery.data ?? [];
+  const goalTargets = goalTargetsQuery.data ?? [];
+  const healthMetricEntries = healthMetricEntriesQuery.data ?? [];
+  const dailyTasks = dailyTasksQuery.data ?? [];
+  const latestSleep = getLatestHealthMetric(healthMetricEntries, 'sleep_hours');
+  const latestSteps = getLatestHealthMetric(healthMetricEntries, 'steps');
 
   const todayNutritionLog = findLogForDate(nutritionLogs, today);
 
@@ -83,7 +106,27 @@ export function DashboardPage() {
     nutritionTarget,
     workoutSessions,
     bodyweightEntries,
+    goalTargets,
+    healthMetricEntries,
     weeklyWorkoutTarget: 4
+  });
+
+  const workoutHeatmap = buildActivityHeatmap({
+    endDate: today,
+    weekCount: 12,
+    countsByDate: countActivityByDate(
+      workoutSessions.filter((session) => session.status === 'completed'),
+      (session) => session.session_date
+    )
+  });
+
+  const schedulingHeatmap = buildActivityHeatmap({
+    endDate: today,
+    weekCount: 12,
+    countsByDate: countActivityByDate(
+      dailyTasks.filter((task) => task.status === 'completed'),
+      (task) => task.task_date
+    )
   });
 
   const inProgressWorkout =
@@ -118,6 +161,11 @@ export function DashboardPage() {
       title: 'Scheduling',
       to: '/app/scheduling',
       icon: ListChecks
+    },
+    {
+      title: 'Health',
+      to: '/app/health',
+      icon: HeartPulse
     }
   ];
 
@@ -229,7 +277,9 @@ export function DashboardPage() {
             <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Weekly workouts</p>
             <CalendarDays className="size-5 text-emerald-600" />
           </div>
-          <p className="mt-3 text-2xl font-bold">{dailyGoals.workoutsCompletedThisWeek}/4</p>
+          <p className="mt-3 text-2xl font-bold">
+            {dailyGoals.workoutsCompletedThisWeek}/{dailyGoals.weeklyWorkoutTarget}
+          </p>
           <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
             {dailyGoals.workoutsRemainingThisWeek} remaining this week
           </p>
@@ -284,6 +334,66 @@ export function DashboardPage() {
           Open weight
           <ChevronRight className="size-4" />
         </Link>
+      </article>
+
+      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Health snapshot</h2>
+            <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+              Sleep, steps, heart rate, and manual health metrics.
+            </p>
+          </div>
+          <HeartPulse className="size-5 text-emerald-600" />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+            <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Latest sleep</p>
+            <p className="mt-2 text-2xl font-bold">
+              {formatHealthValue(latestSleep ? Number(latestSleep.value) : null, latestSleep?.unit ?? 'hours')}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+            <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Latest steps</p>
+            <p className="mt-2 text-2xl font-bold">
+              {formatHealthValue(latestSteps ? Number(latestSteps.value) : null, latestSteps?.unit ?? 'steps')}
+            </p>
+          </div>
+        </div>
+
+        <Link
+          to="/app/health"
+          className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+        >
+          Open health
+          <ChevronRight className="size-4" />
+        </Link>
+      </article>
+
+      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Consistency</h2>
+            <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+              Last 12 weeks
+            </p>
+          </div>
+          <ListChecks className="size-5 text-emerald-600" />
+        </div>
+
+        <div className="mt-4 grid gap-4">
+          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+            <p className="mb-3 text-sm font-semibold text-stone-600 dark:text-stone-300">Workouts</p>
+            <ActivityHeatmap weeks={workoutHeatmap} label="Workout consistency heatmap" />
+          </div>
+
+          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+            <p className="mb-3 text-sm font-semibold text-stone-600 dark:text-stone-300">Scheduling</p>
+            <ActivityHeatmap weeks={schedulingHeatmap} label="Scheduling consistency heatmap" />
+          </div>
+        </div>
       </article>
 
       <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">

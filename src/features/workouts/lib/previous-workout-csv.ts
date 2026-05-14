@@ -22,6 +22,17 @@ export type PreviousWorkoutCsvPreview = {
     duplicateKeys: string[]
 }
 
+export type PreviousWorkoutImportPlan = {
+    workouts: Array<{
+        key: string
+        workoutDate: string
+        workoutName: string
+        rows: ParsedPreviousWorkoutCsvRow[]
+    }>
+    blockingErrors: string[]
+    duplicateKeys: string[]
+}
+
 export const previousWorkoutCsvHeaders = [
     'workout_date',
     'workout_name',
@@ -35,6 +46,10 @@ export const previousWorkoutCsvHeaders = [
     'reps',
     'notes'
 ]
+
+const requiredPreviousWorkoutCsvHeaders = previousWorkoutCsvHeaders.filter(
+    (header) => header !== 'workout_name'
+)
 
 function splitCsvLine(line: string) {
     const values: string[] = []
@@ -144,10 +159,16 @@ export function parsePreviousWorkoutCsv(csvText: string): PreviousWorkoutCsvPrev
     }
 
     const headers = splitCsvLine(lines[0])
-    const missingHeaders = previousWorkoutCsvHeaders.filter((header) => !headers.includes(header))
+    const missingHeaders = requiredPreviousWorkoutCsvHeaders.filter((header) => !headers.includes(header))
+    const hasWorkoutNameHeader = headers.includes('workout_name') || headers.includes('workout_day')
 
-    if (missingHeaders.length > 0) {
-        throw new Error(`CSV is missing headers: ${missingHeaders.join(', ')}`)
+    if (missingHeaders.length > 0 || !hasWorkoutNameHeader) {
+        throw new Error(
+            `CSV is missing headers: ${[
+                ...missingHeaders,
+                ...(hasWorkoutNameHeader ? [] : ['workout_name or workout_day']),
+            ].join(', ')}`
+        )
     }
 
     const warnings: string[] = []
@@ -159,7 +180,7 @@ export function parsePreviousWorkoutCsv(csvText: string): PreviousWorkoutCsvPrev
         const row = Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] ?? '']))
         const workoutDate = cleanText(row.workout_date)
         const exerciseName = cleanText(row.exercise_name)
-        const workoutName = cleanText(row.workout_name) ?? 'Imported workout'
+        const workoutName = cleanText(row.workout_name) ?? cleanText(row.workout_day) ?? 'Imported workout'
         const setNumber = parseRequiredInteger(row.set_number, rowNumber, 'set_number')
         const loadType = parseLoadType(row.load_type)
         const weight = parseOptionalNumber(row.weight)
@@ -177,6 +198,18 @@ export function parsePreviousWorkoutCsv(csvText: string): PreviousWorkoutCsvPrev
 
         if (reps !== null && (!Number.isInteger(reps) || reps < 0)) {
             throw new Error(`Row ${rowNumber} has invalid reps.`)
+        }
+
+        if (weight !== null && weight < 0) {
+            throw new Error(`Row ${rowNumber} has invalid weight.`)
+        }
+
+        if (assistWeight !== null && assistWeight < 0) {
+            throw new Error(`Row ${rowNumber} has invalid assist_weight.`)
+        }
+
+        if (addedWeight !== null && addedWeight < 0) {
+            throw new Error(`Row ${rowNumber} has invalid added_weight.`)
         }
 
         if (loadType === 'weighted' && weight === null) {
@@ -237,4 +270,56 @@ export function groupPreviousWorkoutCsvRows(rows: ParsedPreviousWorkoutCsvRow[])
 
         return groups
     }, {})
+}
+
+export function buildPreviousWorkoutImportPlan(
+    rows: ParsedPreviousWorkoutCsvRow[]
+): PreviousWorkoutImportPlan {
+    const duplicateCounts = new Map<string, number>()
+    const workoutsByKey = new Map<string, ParsedPreviousWorkoutCsvRow[]>()
+    const blockingErrors: string[] = []
+
+    for (const row of rows) {
+        duplicateCounts.set(row.duplicateKey, (duplicateCounts.get(row.duplicateKey) ?? 0) + 1)
+
+        if (row.loadType === 'assisted' && row.assistWeight === null) {
+            blockingErrors.push(`Row ${row.rowNumber} needs assist_weight for assisted work.`)
+        }
+
+        if (row.loadType === 'added_weight' && row.addedWeight === null) {
+            blockingErrors.push(`Row ${row.rowNumber} needs added_weight for added-weight work.`)
+        }
+
+        if (row.reps === null) {
+            blockingErrors.push(`Row ${row.rowNumber} needs reps before importing.`)
+        }
+
+        const workoutKey = `${row.workoutDate}|${row.workoutName.trim().toLowerCase()}`
+        const workoutRows = workoutsByKey.get(workoutKey) ?? []
+        workoutRows.push(row)
+        workoutsByKey.set(workoutKey, workoutRows)
+    }
+
+    const duplicateKeys = Array.from(duplicateCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([key]) => key)
+
+    for (const duplicateKey of duplicateKeys) {
+        blockingErrors.push(`Duplicate set in CSV: ${duplicateKey}`)
+    }
+
+    return {
+        workouts: Array.from(workoutsByKey.entries()).map(([key, workoutRows]) => ({
+            key,
+            workoutDate: workoutRows[0]?.workoutDate ?? '',
+            workoutName: workoutRows[0]?.workoutName ?? 'Imported workout',
+            rows: workoutRows.slice().sort((a, b) => {
+                const exerciseCompare = a.exerciseName.localeCompare(b.exerciseName)
+
+                return exerciseCompare === 0 ? a.setNumber - b.setNumber : exerciseCompare
+            }),
+        })),
+        blockingErrors,
+        duplicateKeys,
+    }
 }

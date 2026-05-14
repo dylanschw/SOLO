@@ -53,6 +53,77 @@ describe('daily goal calculator', () => {
         expect(summary.workoutsRemainingThisWeek).toBe(2);
     });
 
+    it('uses saved goal targets for dashboard calculations', () => {
+        const summary = buildDailyGoalSummary({
+            today: '2026-05-13',
+            preferredUnit: 'lb',
+            todayNutritionLog: {
+                log_date: '2026-05-13',
+                calories: 2000,
+                protein_g: 100,
+                meal_count: 2
+            },
+            nutritionTarget: {
+                calories: 3200,
+                protein_g: 180
+            },
+            workoutSessions: [
+                {
+                    session_date: '2026-05-13',
+                    status: 'completed'
+                }
+            ],
+            bodyweightEntries: [],
+            goalTargets: [
+                {
+                    metric: 'calories',
+                    target_value: 2800,
+                    is_active: true,
+                    deleted_at: null
+                },
+                {
+                    metric: 'workouts_per_week',
+                    target_value: 3,
+                    is_active: true,
+                    deleted_at: null
+                }
+            ]
+        });
+
+        expect(summary.calorieTarget).toBe(2800);
+        expect(summary.weeklyWorkoutTarget).toBe(3);
+        expect(summary.workoutsRemainingThisWeek).toBe(2);
+    });
+
+    it('adds health metric goal actions when health data is available', () => {
+        const summary = buildDailyGoalSummary({
+            today: '2026-05-13',
+            preferredUnit: 'lb',
+            todayNutritionLog: null,
+            nutritionTarget: null,
+            workoutSessions: [],
+            bodyweightEntries: [],
+            goalTargets: [
+                {
+                    metric: 'steps',
+                    target_value: 8000,
+                    is_active: true,
+                    deleted_at: null
+                }
+            ],
+            healthMetricEntries: [
+                {
+                    metric_type: 'steps',
+                    metric_date: '2026-05-13',
+                    value: 5000,
+                    deleted_at: null
+                }
+            ]
+        });
+
+        expect(summary.actions.some((action) => action.title === '3000 steps left')).toBe(true);
+    });
+
     it('finds today nutrition log', () => {
         const log = findLogForDate(
             [

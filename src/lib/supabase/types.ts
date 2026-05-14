@@ -16,6 +16,28 @@ export type LoggedSetType = 'warmup' | 'working' | 'top' | 'backoff' | 'drop' | 
 
 export type WorkoutSetLoadType = 'weighted' | 'bodyweight' | 'no_weight' | 'assisted' | 'added_weight'
 
+export type GoalMetric =
+  | 'bodyweight'
+  | 'calories'
+  | 'protein'
+  | 'workouts_per_week'
+  | 'water'
+  | 'sleep'
+  | 'steps'
+  | 'resting_heart_rate'
+
+export type GoalPeriod = 'daily' | 'weekly' | 'target'
+
+export type HealthMetricType =
+  | 'sleep_hours'
+  | 'steps'
+  | 'resting_heart_rate'
+  | 'calories_burned'
+  | 'water_ml'
+  | 'creatine'
+
+export type HealthMetricSource = 'manual' | 'apple_health' | 'apple_watch' | 'imported'
+
 export type Database = {
   public: {
     Tables: {
@@ -706,6 +728,116 @@ export type Database = {
           water_logged_ml?: number
           creatine_completed?: boolean
           notes?: string | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      goal_targets: {
+        Row: {
+          id: string
+          user_id: string
+          metric: GoalMetric
+          target_value: number
+          unit: string
+          period: GoalPeriod
+          target_date: string | null
+          notes: string | null
+          is_active: boolean
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          metric: GoalMetric
+          target_value: number
+          unit: string
+          period?: GoalPeriod
+          target_date?: string | null
+          notes?: string | null
+          is_active?: boolean
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          metric?: GoalMetric
+          target_value?: number
+          unit?: string
+          period?: GoalPeriod
+          target_date?: string | null
+          notes?: string | null
+          is_active?: boolean
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      health_metric_entries: {
+        Row: {
+          id: string
+          user_id: string
+          metric_type: HealthMetricType
+          metric_date: string
+          value: number
+          unit: string
+          source: HealthMetricSource
+          notes: string | null
+          external_id: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          metric_type: HealthMetricType
+          metric_date: string
+          value: number
+          unit: string
+          source?: HealthMetricSource
+          notes?: string | null
+          external_id?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          metric_type?: HealthMetricType
+          metric_date?: string
+          value?: number
+          unit?: string
+          source?: HealthMetricSource
+          notes?: string | null
+          external_id?: string | null
           client_id?: string
           sync_status?: SyncStatus
           version?: number

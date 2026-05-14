@@ -1037,7 +1037,7 @@ export function WorkoutsPage() {
 
             <WorkoutCsvImport onImported={refetchWorkoutData} />
 
-            <PreviousWorkoutCsvImport />
+            <PreviousWorkoutCsvImport onImported={refetchWorkoutData} />
 
             <WorkoutTextImportWizard onImported={refetchWorkoutData} />
           </>
