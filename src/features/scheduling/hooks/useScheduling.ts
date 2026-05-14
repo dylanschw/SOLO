@@ -7,6 +7,7 @@ import {
     deleteDailyTask,
     generateTodayTasksFromRoutine,
     getDailyWellnessEntry,
+    listDailyWellnessEntries,
     listDailyTasks,
     listRoutineItems,
     carryUnfinishedTasksToToday,
@@ -64,6 +65,22 @@ export function useDailyWellnessEntry(entryDate: string) {
             return getDailyWellnessEntry(user.id, entryDate)
         },
         enabled: Boolean(user && entryDate)
+    })
+}
+
+export function useDailyWellnessEntries() {
+    const { user } = useAuth()
+
+    return useQuery({
+        queryKey: ['daily-wellness-entries', user?.id],
+        queryFn: () => {
+            if (!user) {
+                throw new Error('Cannot load daily wellness entries without a signed-in user')
+            }
+
+            return listDailyWellnessEntries(user.id)
+        },
+        enabled: Boolean(user)
     })
 }
 
@@ -275,6 +292,7 @@ export function useUpsertDailyWellnessEntry() {
         },
         onSuccess: (_entry, variables) => {
             queryClient.invalidateQueries({ queryKey: ['daily-wellness-entry', user?.id, variables.entryDate] })
+            queryClient.invalidateQueries({ queryKey: ['daily-wellness-entries', user?.id] })
         }
     })
 }

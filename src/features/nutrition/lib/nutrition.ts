@@ -45,7 +45,7 @@ export async function listNutritionLogs(userId: string) {
         .eq('user_id', userId)
         .is('deleted_at', null)
         .order('log_date', { ascending: false })
-        .limit(30)
+        .limit(400)
 
     if (error) {
         throw error

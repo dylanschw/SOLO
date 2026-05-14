@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateGoalProgress, getGoalValue } from '../lib/goal-progress'
+import { calculateGoalProgress, formatGoalProgressLabel, getGoalProgressLabel, getGoalValue } from '../lib/goal-progress'
 
 describe('goal progress utilities', () => {
     it('finds an active goal value', () => {
@@ -33,6 +33,7 @@ describe('goal progress utilities', () => {
         expect(progress.remaining).toBe(90)
         expect(progress.percent).toBe(50)
         expect(progress.status).toBe('warning')
+        expect(progress.label).toBe('behind')
     })
 
     it('calculates progress for lower-is-better goals', () => {
@@ -45,5 +46,12 @@ describe('goal progress utilities', () => {
 
         expect(progress.remaining).toBe(0)
         expect(progress.status).toBe('good')
+        expect(progress.label).toBe('complete')
+    })
+
+    it('formats goal pace labels for UI copy', () => {
+        expect(getGoalProgressLabel({ percent: 95 })).toBe('on_pace')
+        expect(getGoalProgressLabel({ percent: null })).toBe('needs_attention')
+        expect(formatGoalProgressLabel('needs_attention')).toBe('needs attention')
     })
 })

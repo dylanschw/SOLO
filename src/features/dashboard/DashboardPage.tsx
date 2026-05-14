@@ -5,25 +5,35 @@ import {
   ChevronRight,
   Dumbbell,
   Flame,
+  Brain,
   HeartPulse,
   ListChecks,
   Scale,
   Target,
   TrendingUp
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ActivityHeatmap } from '../../components/ui/ActivityHeatmap';
 import { useAuth } from '../auth/hooks/useAuth';
 import { useBodyweightEntries } from '../bodyweight/hooks/useBodyweightEntries';
+import { buildCoachWeeklySummary } from '../coach/lib/coach-insights';
 import { useGoalTargets } from '../goals/hooks/useGoals';
 import { useHealthMetricEntries } from '../health/hooks/useHealthMetrics';
 import { getLatestHealthMetric } from '../health/lib/health-metrics';
 import { useNutritionLogs, useActiveNutritionTarget } from '../nutrition/hooks/useNutrition';
 import { useProfile } from '../profile/hooks/useProfile';
-import { useDailyTasks } from '../scheduling/hooks/useScheduling';
+import { useDailyTasks, useDailyWellnessEntries } from '../scheduling/hooks/useScheduling';
 import { useActiveWorkoutProgram, useWorkoutDays } from '../workouts/hooks/useWorkouts';
 import { useWorkoutSessions } from '../workouts/hooks/useWorkoutSessions';
-import { buildActivityHeatmap, countActivityByDate } from './lib/activity-heatmap';
+import {
+  buildActivityHeatmap,
+  calculateActivityHeatmapStats,
+  combineActivityCounts,
+  countActivityByDate,
+  getActivityHeatmapRangeConfig,
+  type ActivityHeatmapRange
+} from './lib/activity-heatmap';
 import { buildDailyGoalSummary, findLogForDate } from './lib/daily-goals';
 
 function todayDate() {
@@ -66,7 +76,38 @@ function formatHealthValue(value: number | null, unit: string) {
   return `${Number.isInteger(value) ? value : value.toFixed(1)} ${unit}`;
 }
 
+type DashboardHeatmapSourceId =
+  | 'overall'
+  | 'workouts'
+  | 'scheduling'
+  | 'bodyweight'
+  | 'nutrition'
+  | 'water'
+  | 'creatine'
+  | 'sleep';
+
+const heatmapRanges: Array<{ id: ActivityHeatmapRange; label: string }> = [
+  { id: '30d', label: '30 days' },
+  { id: '90d', label: '90 days' },
+  { id: 'year', label: 'Year' }
+];
+
+function formatCoachRecommendation(label: string) {
+  const labels: Record<string, string> = {
+    keep_going: 'Keep going',
+    increase_weight_carefully: 'Increase weight carefully',
+    repeat_same_load: 'Repeat the same load',
+    consider_rest_recovery: 'Consider rest or recovery',
+    calories_are_behind_target: 'Calories are behind target',
+    sleep_is_below_target: 'Sleep is below target'
+  };
+
+  return labels[label] ?? label.replaceAll('_', ' ');
+}
+
 export function DashboardPage() {
+  const [heatmapSourceId, setHeatmapSourceId] = useState<DashboardHeatmapSourceId>('overall');
+  const [heatmapRange, setHeatmapRange] = useState<ActivityHeatmapRange>('90d');
   const { user } = useAuth();
   const profileQuery = useProfile();
   const activeProgramQuery = useActiveWorkoutProgram();
@@ -77,6 +118,7 @@ export function DashboardPage() {
   const goalTargetsQuery = useGoalTargets();
   const healthMetricEntriesQuery = useHealthMetricEntries();
   const dailyTasksQuery = useDailyTasks();
+  const dailyWellnessEntriesQuery = useDailyWellnessEntries();
 
   const profile = profileQuery.data;
   const activeProgram = activeProgramQuery.data;
@@ -94,6 +136,7 @@ export function DashboardPage() {
   const goalTargets = goalTargetsQuery.data ?? [];
   const healthMetricEntries = healthMetricEntriesQuery.data ?? [];
   const dailyTasks = dailyTasksQuery.data ?? [];
+  const dailyWellnessEntries = dailyWellnessEntriesQuery.data ?? [];
   const latestSleep = getLatestHealthMetric(healthMetricEntries, 'sleep_hours');
   const latestSteps = getLatestHealthMetric(healthMetricEntries, 'steps');
 
@@ -111,22 +154,71 @@ export function DashboardPage() {
     weeklyWorkoutTarget: 4
   });
 
-  const workoutHeatmap = buildActivityHeatmap({
+  const workoutCounts = countActivityByDate(
+    workoutSessions.filter((session) => session.status === 'completed'),
+    (session) => session.session_date
+  );
+  const schedulingCounts = countActivityByDate(
+    dailyTasks.filter((task) => task.status === 'completed'),
+    (task) => task.task_date
+  );
+  const bodyweightCounts = countActivityByDate(bodyweightEntries, (entry) => entry.entry_date);
+  const nutritionCounts = countActivityByDate(nutritionLogs, (log) => log.log_date);
+  const waterCounts = countActivityByDate(
+    dailyWellnessEntries.filter((entry) => entry.water_goal_ml > 0 && entry.water_logged_ml >= entry.water_goal_ml),
+    (entry) => entry.entry_date
+  );
+  const creatineCounts = countActivityByDate(
+    dailyWellnessEntries.filter((entry) => entry.creatine_completed),
+    (entry) => entry.entry_date
+  );
+  const sleepCounts = countActivityByDate(
+    healthMetricEntries.filter((entry) => entry.metric_type === 'sleep_hours'),
+    (entry) => entry.metric_date
+  );
+  const overallCounts = combineActivityCounts([
+    workoutCounts,
+    schedulingCounts,
+    bodyweightCounts,
+    nutritionCounts,
+    waterCounts,
+    creatineCounts,
+    sleepCounts
+  ]);
+  const heatmapSourceOptions: Array<{
+    id: DashboardHeatmapSourceId;
+    label: string;
+    counts: Map<string, number>;
+  }> = [
+      { id: 'overall', label: 'Overall', counts: overallCounts },
+      { id: 'workouts', label: 'Workouts', counts: workoutCounts },
+      { id: 'scheduling', label: 'Schedule', counts: schedulingCounts },
+      { id: 'bodyweight', label: 'Weight', counts: bodyweightCounts },
+      { id: 'nutrition', label: 'Food', counts: nutritionCounts },
+      { id: 'water', label: 'Water', counts: waterCounts },
+      { id: 'creatine', label: 'Creatine', counts: creatineCounts },
+      { id: 'sleep', label: 'Sleep', counts: sleepCounts }
+    ];
+  const selectedHeatmapSource = heatmapSourceOptions.find((source) => source.id === heatmapSourceId) ?? heatmapSourceOptions[0];
+  const heatmapRangeConfig = getActivityHeatmapRangeConfig(heatmapRange, today);
+  const selectedHeatmap = buildActivityHeatmap({
     endDate: today,
-    weekCount: 12,
-    countsByDate: countActivityByDate(
-      workoutSessions.filter((session) => session.status === 'completed'),
-      (session) => session.session_date
-    )
+    weekCount: heatmapRangeConfig.weekCount,
+    countsByDate: selectedHeatmapSource.counts
   });
-
-  const schedulingHeatmap = buildActivityHeatmap({
+  const selectedHeatmapStats = calculateActivityHeatmapStats({
     endDate: today,
-    weekCount: 12,
-    countsByDate: countActivityByDate(
-      dailyTasks.filter((task) => task.status === 'completed'),
-      (task) => task.task_date
-    )
+    dayCount: heatmapRangeConfig.dayCount,
+    countsByDate: selectedHeatmapSource.counts
+  });
+  const coachSummary = buildCoachWeeklySummary({
+    today,
+    workoutSessions,
+    nutritionLogs,
+    bodyweightEntries,
+    healthMetricEntries,
+    dailyTasks,
+    goalTargets
   });
 
   const inProgressWorkout =
@@ -377,22 +469,111 @@ export function DashboardPage() {
           <div>
             <h2 className="text-xl font-bold">Consistency</h2>
             <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-              Last 12 weeks
+              {selectedHeatmapSource.label} - {heatmapRangeConfig.label}
             </p>
           </div>
           <ListChecks className="size-5 text-emerald-600" />
         </div>
 
-        <div className="mt-4 grid gap-4">
-          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
-            <p className="mb-3 text-sm font-semibold text-stone-600 dark:text-stone-300">Workouts</p>
-            <ActivityHeatmap weeks={workoutHeatmap} label="Workout consistency heatmap" />
+        <div className="mt-4 grid gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {heatmapSourceOptions.map((source) => (
+              <button
+                key={source.id}
+                type="button"
+                onClick={() => setHeatmapSourceId(source.id)}
+                className={`min-h-10 rounded-xl px-2 text-xs font-semibold transition ${heatmapSourceId === source.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-stone-50 text-stone-600 hover:bg-stone-100 dark:bg-neutral-900 dark:text-stone-300 dark:hover:bg-neutral-800'
+                  }`}
+              >
+                {source.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {heatmapRanges.map((range) => (
+              <button
+                key={range.id}
+                type="button"
+                onClick={() => setHeatmapRange(range.id)}
+                className={`min-h-10 rounded-xl px-2 text-xs font-semibold transition ${heatmapRange === range.id
+                    ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-950'
+                    : 'bg-stone-50 text-stone-600 hover:bg-stone-100 dark:bg-neutral-900 dark:text-stone-300 dark:hover:bg-neutral-800'
+                  }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+            <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+              <p className="text-xs text-stone-500 dark:text-stone-400">Current</p>
+              <p className="font-bold">{selectedHeatmapStats.currentStreak}d</p>
+            </div>
+            <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+              <p className="text-xs text-stone-500 dark:text-stone-400">Longest</p>
+              <p className="font-bold">{selectedHeatmapStats.longestStreak}d</p>
+            </div>
+            <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+              <p className="text-xs text-stone-500 dark:text-stone-400">Active days</p>
+              <p className="font-bold">{selectedHeatmapStats.activeDays}</p>
+            </div>
+            <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+              <p className="text-xs text-stone-500 dark:text-stone-400">Completion</p>
+              <p className="font-bold">{selectedHeatmapStats.completionPercentage}%</p>
+            </div>
           </div>
 
           <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
-            <p className="mb-3 text-sm font-semibold text-stone-600 dark:text-stone-300">Scheduling</p>
-            <ActivityHeatmap weeks={schedulingHeatmap} label="Scheduling consistency heatmap" />
+            <ActivityHeatmap weeks={selectedHeatmap} label={`${selectedHeatmapSource.label} consistency heatmap`} />
           </div>
+        </div>
+      </article>
+
+      <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Insights</h2>
+            <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+              Simple weekly calculations, no external AI.
+            </p>
+          </div>
+          <Brain className="size-5 text-emerald-600" />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+            <p className="text-xs text-stone-500 dark:text-stone-400">Training</p>
+            <p className="font-bold">{coachSummary.trainingConsistencyScore}%</p>
+          </div>
+          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+            <p className="text-xs text-stone-500 dark:text-stone-400">Nutrition</p>
+            <p className="font-bold">{coachSummary.nutritionConsistencyScore}%</p>
+          </div>
+          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+            <p className="text-xs text-stone-500 dark:text-stone-400">Schedule</p>
+            <p className="font-bold">{coachSummary.schedulingConsistencyScore}%</p>
+          </div>
+          <div className="rounded-xl bg-stone-50 p-3 dark:bg-neutral-900">
+            <p className="text-xs text-stone-500 dark:text-stone-400">Sleep</p>
+            <p className="font-bold">
+              {coachSummary.sleepConsistencyScore === null ? '--' : `${coachSummary.sleepConsistencyScore}%`}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          {coachSummary.recommendations.slice(0, 3).map((recommendation) => (
+            <p
+              key={recommendation}
+              className="rounded-xl bg-stone-50 p-3 text-sm font-semibold text-stone-700 dark:bg-neutral-900 dark:text-stone-200"
+            >
+              {formatCoachRecommendation(recommendation)}
+            </p>
+          ))}
         </div>
       </article>
 
@@ -415,7 +596,7 @@ export function DashboardPage() {
 
           <div className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
             <span className="text-sm font-semibold text-stone-500 dark:text-stone-400">Weekly target</span>
-            <span className="text-sm font-bold">4 workouts</span>
+            <span className="text-sm font-bold">{dailyGoals.weeklyWorkoutTarget} workouts</span>
           </div>
         </div>
 

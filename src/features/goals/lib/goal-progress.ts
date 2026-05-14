@@ -2,6 +2,7 @@ import type { GoalMetric } from '../../../lib/supabase/types'
 import type { GoalTarget } from './goals'
 
 export type GoalProgressStatus = 'good' | 'warning' | 'neutral'
+export type GoalProgressLabel = 'ahead' | 'on_pace' | 'behind' | 'complete' | 'needs_attention'
 
 export type GoalProgress = {
     metric: GoalMetric
@@ -10,6 +11,7 @@ export type GoalProgress = {
     remaining: number | null
     percent: number | null
     status: GoalProgressStatus
+    label: GoalProgressLabel
 }
 
 export function getGoalValue(
@@ -38,6 +40,7 @@ export function calculateGoalProgress(input: {
             remaining: null,
             percent: null,
             status: 'neutral',
+            label: 'needs_attention',
         }
     }
 
@@ -56,5 +59,52 @@ export function calculateGoalProgress(input: {
         remaining,
         percent: Math.round(percent),
         status: isMet ? 'good' : 'warning',
+        label: getGoalProgressLabel({
+            percent,
+            isMet,
+            lowerIsBetter: input.lowerIsBetter,
+            actual,
+            target: input.target,
+        }),
     }
+}
+
+export function getGoalProgressLabel(input: {
+    percent: number | null
+    isMet?: boolean
+    lowerIsBetter?: boolean
+    actual?: number | null
+    target?: number
+}): GoalProgressLabel {
+    if (input.percent === null || !Number.isFinite(input.percent)) {
+        return 'needs_attention'
+    }
+
+    if (input.isMet) {
+        return 'complete'
+    }
+
+    if (input.lowerIsBetter && input.actual !== null && typeof input.actual === 'number' && input.target) {
+        const difference = input.actual - input.target
+
+        if (difference <= 5) {
+            return 'on_pace'
+        }
+
+        return 'behind'
+    }
+
+    if (input.percent >= 110) {
+        return 'ahead'
+    }
+
+    if (input.percent >= 90) {
+        return 'on_pace'
+    }
+
+    return 'behind'
+}
+
+export function formatGoalProgressLabel(label: GoalProgressLabel) {
+    return label.replace('_', ' ')
 }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
     buildPreviousWorkoutImportPlan,
+    formatPreviousWorkoutCsvRowLoad,
     groupPreviousWorkoutCsvRows,
     parsePreviousWorkoutCsv,
+    previousWorkoutCsvTemplate,
+    summarizePreviousWorkoutImportPlan,
 } from '../lib/previous-workout-csv'
 
 describe('previous workout csv parser', () => {
@@ -89,5 +92,23 @@ describe('previous workout csv parser', () => {
 
     it('throws for missing required headers', () => {
         expect(() => parsePreviousWorkoutCsv('workout_date\n2026-05-01')).toThrow(/missing headers/i)
+    })
+
+    it('formats preview rows by load type without duplicate units', () => {
+        const preview = parsePreviousWorkoutCsv(previousWorkoutCsvTemplate)
+
+        expect(formatPreviousWorkoutCsvRowLoad(preview.rows[0])).toBe('65 lb x 10')
+        expect(formatPreviousWorkoutCsvRowLoad(preview.rows[1])).toBe('No weight x 15')
+        expect(formatPreviousWorkoutCsvRowLoad(preview.rows[2])).toBe('Assisted 60 lb x 8')
+        expect(formatPreviousWorkoutCsvRowLoad(preview.rows[3])).toBe('+25 lb x 6')
+    })
+
+    it('summarizes an import plan for UI preview copy', () => {
+        const preview = parsePreviousWorkoutCsv(previousWorkoutCsvTemplate)
+        const summary = summarizePreviousWorkoutImportPlan(buildPreviousWorkoutImportPlan(preview.rows))
+
+        expect(summary.workoutCount).toBe(2)
+        expect(summary.setCount).toBe(4)
+        expect(summary.hasBlockingErrors).toBe(false)
     })
 })

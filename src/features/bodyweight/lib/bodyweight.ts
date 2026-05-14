@@ -27,7 +27,7 @@ export async function listBodyweightEntries(userId: string) {
         .eq('user_id', userId)
         .is('deleted_at', null)
         .order('entry_date', { ascending: false })
-        .limit(30)
+        .limit(400)
 
     if (error) {
         throw error
