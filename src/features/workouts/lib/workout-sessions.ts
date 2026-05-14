@@ -103,7 +103,7 @@ export async function listWorkoutSessions(userId: string) {
         .is('deleted_at', null)
         .order('session_date', { ascending: false })
         .order('started_at', { ascending: false, nullsFirst: false })
-        .limit(20)
+        .limit(400)
 
     if (error) {
         throw error

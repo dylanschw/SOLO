@@ -126,7 +126,7 @@ export async function listDailyTasks(userId: string, taskDate?: string) {
         .is('deleted_at', null)
         .order('task_date', { ascending: false })
         .order('sort_order', { ascending: true })
-        .limit(100)
+        .limit(400)
 
     if (taskDate) {
         query = query.eq('task_date', taskDate)
@@ -371,6 +371,22 @@ export async function getDailyWellnessEntry(userId: string, entryDate: string) {
         .eq('entry_date', entryDate)
         .is('deleted_at', null)
         .maybeSingle()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function listDailyWellnessEntries(userId: string) {
+    const { data, error } = await supabase
+        .from('daily_wellness_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('entry_date', { ascending: false })
+        .limit(400)
 
     if (error) {
         throw error

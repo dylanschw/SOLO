@@ -738,6 +738,125 @@ export type Database = {
         Relationships: []
       }
 
+      recipes: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          calories: number | null
+          protein_g: number | null
+          carbs_g: number | null
+          fat_g: number | null
+          servings: number
+          ingredients: string | null
+          instructions: string | null
+          notes: string | null
+          category: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          calories?: number | null
+          protein_g?: number | null
+          carbs_g?: number | null
+          fat_g?: number | null
+          servings?: number
+          ingredients?: string | null
+          instructions?: string | null
+          notes?: string | null
+          category?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          calories?: number | null
+          protein_g?: number | null
+          carbs_g?: number | null
+          fat_g?: number | null
+          servings?: number
+          ingredients?: string | null
+          instructions?: string | null
+          notes?: string | null
+          category?: string | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      meal_prep_templates: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          meals_covered: string | null
+          days_planned: number
+          meals_text: string | null
+          grocery_notes: string | null
+          prep_notes: string | null
+          notes: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          meals_covered?: string | null
+          days_planned?: number
+          meals_text?: string | null
+          grocery_notes?: string | null
+          prep_notes?: string | null
+          notes?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          meals_covered?: string | null
+          days_planned?: number
+          meals_text?: string | null
+          grocery_notes?: string | null
+          prep_notes?: string | null
+          notes?: string | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
       goal_targets: {
         Row: {
           id: string
@@ -804,6 +923,9 @@ export type Database = {
           source: HealthMetricSource
           notes: string | null
           external_id: string | null
+          sleep_start_time: string | null
+          sleep_end_time: string | null
+          sleep_quality: number | null
           client_id: string
           sync_status: SyncStatus
           version: number
@@ -821,6 +943,9 @@ export type Database = {
           source?: HealthMetricSource
           notes?: string | null
           external_id?: string | null
+          sleep_start_time?: string | null
+          sleep_end_time?: string | null
+          sleep_quality?: number | null
           client_id: string
           sync_status?: SyncStatus
           version?: number
@@ -838,6 +963,9 @@ export type Database = {
           source?: HealthMetricSource
           notes?: string | null
           external_id?: string | null
+          sleep_start_time?: string | null
+          sleep_end_time?: string | null
+          sleep_quality?: number | null
           client_id?: string
           sync_status?: SyncStatus
           version?: number

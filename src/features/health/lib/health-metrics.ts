@@ -12,6 +12,15 @@ export type UpsertHealthMetricEntryInput = {
     source?: HealthMetricSource
     notes?: string | null
     externalId?: string | null
+    sleepStartTime?: string | null
+    sleepEndTime?: string | null
+    sleepQuality?: number | null
+}
+
+export type HealthMetricSummary = {
+    latest: HealthMetricEntry | null
+    weeklyAverage: number | null
+    trend: 'up' | 'down' | 'flat' | 'unknown'
 }
 
 export const healthMetricOptions: Array<{
@@ -37,6 +46,30 @@ function cleanText(value: string | null | undefined) {
     return trimmed ? trimmed : null
 }
 
+function cleanTime(value: string | null | undefined) {
+    const trimmed = value?.trim()
+
+    return trimmed && /^\d{2}:\d{2}$/.test(trimmed) ? trimmed : null
+}
+
+function cleanSleepQuality(value: number | null | undefined) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return null
+    }
+
+    return Math.min(5, Math.max(1, Math.round(value)))
+}
+
+function toDateTime(metricDate: string, time: string) {
+    return new Date(`${metricDate}T${time}:00`)
+}
+
+function getDateTime(value: string) {
+    const time = new Date(`${value}T12:00:00`).getTime()
+
+    return Number.isFinite(time) ? time : null
+}
+
 export function getHealthMetricOption(type: HealthMetricType) {
     return healthMetricOptions.find((option) => option.type === type) ?? healthMetricOptions[0]
 }
@@ -53,6 +86,94 @@ export function getLatestHealthMetric(entries: HealthMetricEntry[], metricType: 
         })[0] ?? null
 }
 
+export function calculateSleepDurationHours(input: {
+    sleepDate: string
+    sleepStartTime: string
+    sleepEndTime: string
+}) {
+    const start = toDateTime(input.sleepDate, input.sleepStartTime)
+    const end = toDateTime(input.sleepDate, input.sleepEndTime)
+
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+        return null
+    }
+
+    if (end <= start) {
+        end.setDate(end.getDate() + 1)
+    }
+
+    const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+
+    return Number.isFinite(hours) && hours > 0 ? Math.round(hours * 100) / 100 : null
+}
+
+export function summarizeHealthMetric(
+    entries: HealthMetricEntry[],
+    metricType: HealthMetricType,
+    today: string
+): HealthMetricSummary {
+    const latest = getLatestHealthMetric(entries, metricType)
+    const todayTime = getDateTime(today) ?? Date.now()
+    const sevenDaysAgo = todayTime - 1000 * 60 * 60 * 24 * 7
+    const fourteenDaysAgo = todayTime - 1000 * 60 * 60 * 24 * 14
+    const metricEntries = entries.filter((entry) => entry.metric_type === metricType && !entry.deleted_at)
+
+    const recentValues = metricEntries
+        .filter((entry) => {
+            const time = getDateTime(entry.metric_date)
+
+            return time !== null && time >= sevenDaysAgo && time <= todayTime + 1000 * 60 * 60 * 24
+        })
+        .map((entry) => Number(entry.value))
+        .filter((value) => Number.isFinite(value))
+
+    const previousValues = metricEntries
+        .filter((entry) => {
+            const time = getDateTime(entry.metric_date)
+
+            return time !== null && time >= fourteenDaysAgo && time < sevenDaysAgo
+        })
+        .map((entry) => Number(entry.value))
+        .filter((value) => Number.isFinite(value))
+
+    const weeklyAverage =
+        recentValues.length > 0
+            ? Math.round((recentValues.reduce((sum, value) => sum + value, 0) / recentValues.length) * 10) / 10
+            : null
+
+    if (recentValues.length === 0 || previousValues.length === 0) {
+        return {
+            latest,
+            weeklyAverage,
+            trend: 'unknown',
+        }
+    }
+
+    const recentAverage = recentValues.reduce((sum, value) => sum + value, 0) / recentValues.length
+    const previousAverage = previousValues.reduce((sum, value) => sum + value, 0) / previousValues.length
+    const difference = recentAverage - previousAverage
+
+    return {
+        latest,
+        weeklyAverage,
+        trend: Math.abs(difference) < 0.1 ? 'flat' : difference > 0 ? 'up' : 'down',
+    }
+}
+
+export function groupHealthEntriesByDate(entries: HealthMetricEntry[]) {
+    return entries.reduce<Record<string, HealthMetricEntry[]>>((groups, entry) => {
+        if (entry.deleted_at) {
+            return groups
+        }
+
+        const existingEntries = groups[entry.metric_date] ?? []
+        existingEntries.push(entry)
+        groups[entry.metric_date] = existingEntries
+
+        return groups
+    }, {})
+}
+
 export async function listHealthMetricEntries(userId: string) {
     const { data, error } = await supabase
         .from('health_metric_entries')
@@ -61,7 +182,7 @@ export async function listHealthMetricEntries(userId: string) {
         .is('deleted_at', null)
         .order('metric_date', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(100)
+        .limit(400)
 
     if (error) {
         throw error
@@ -97,6 +218,9 @@ export async function upsertHealthMetricEntry(input: UpsertHealthMetricEntryInpu
                 unit: input.unit,
                 notes: cleanText(input.notes),
                 external_id: input.externalId ?? null,
+                sleep_start_time: input.metricType === 'sleep_hours' ? cleanTime(input.sleepStartTime) : null,
+                sleep_end_time: input.metricType === 'sleep_hours' ? cleanTime(input.sleepEndTime) : null,
+                sleep_quality: input.metricType === 'sleep_hours' ? cleanSleepQuality(input.sleepQuality) : null,
                 version: existingEntry.version + 1,
                 sync_status: 'synced',
             })
@@ -123,6 +247,9 @@ export async function upsertHealthMetricEntry(input: UpsertHealthMetricEntryInpu
             source,
             notes: cleanText(input.notes),
             external_id: input.externalId ?? null,
+            sleep_start_time: input.metricType === 'sleep_hours' ? cleanTime(input.sleepStartTime) : null,
+            sleep_end_time: input.metricType === 'sleep_hours' ? cleanTime(input.sleepEndTime) : null,
+            sleep_quality: input.metricType === 'sleep_hours' ? cleanSleepQuality(input.sleepQuality) : null,
             client_id: createClientId(),
             sync_status: 'synced',
         })

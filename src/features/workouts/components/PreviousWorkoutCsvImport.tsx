@@ -1,4 +1,4 @@
-import { ClipboardList, Trash2 } from 'lucide-react'
+import { ClipboardList, Copy, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -9,15 +9,13 @@ import {
 } from '../lib/previous-workout-import'
 import {
     buildPreviousWorkoutImportPlan,
+    formatPreviousWorkoutCsvRowLoad,
     groupPreviousWorkoutCsvRows,
     parsePreviousWorkoutCsv,
+    previousWorkoutCsvTemplate,
+    summarizePreviousWorkoutImportPlan,
     type PreviousWorkoutCsvPreview
 } from '../lib/previous-workout-csv'
-
-const exampleCsv = `workout_date,workout_name,exercise_name,set_number,load_type,weight,assist_weight,added_weight,weight_unit,reps,notes
-2026-05-01,Push Day,Incline Press,1,weighted,65,,,lb,10,solid
-2026-05-01,Push Day,Knee Raise,1,no_weight,,,,lb,15,
-2026-05-02,Pull Day,Assisted Pull-up,1,assisted,,60,,lb,8,`
 
 type PreviousWorkoutCsvImportProps = {
     onImported?: () => void
@@ -43,6 +41,7 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
         () => (preview ? buildPreviousWorkoutImportPlan(preview.rows) : null),
         [preview]
     )
+    const importPlanSummary = importPlan ? summarizePreviousWorkoutImportPlan(importPlan) : null
 
     async function handlePreview(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -78,6 +77,19 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
                 }
                 : currentPreview
         )
+    }
+
+    async function handleCopyTemplate() {
+        setStatusMessage(null)
+        setErrorMessage(null)
+
+        try {
+            await navigator.clipboard.writeText(previousWorkoutCsvTemplate)
+            setStatusMessage('CSV template copied.')
+        } catch {
+            setCsvText(previousWorkoutCsvTemplate)
+            setStatusMessage('CSV template inserted.')
+        }
     }
 
     async function handleImportPreview() {
@@ -144,11 +156,31 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
 
             <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
                 Preview completed workout rows, remove any bad rows, then save them into workout history.
+                Imports create completed sessions, so they count toward history, charts, PRs, autofill, and recommendations.
             </p>
 
             <pre className="mt-3 overflow-x-auto rounded-xl bg-stone-950 p-3 text-xs leading-5 text-stone-100">
-                {exampleCsv}
+                {previousWorkoutCsvTemplate}
             </pre>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                    type="button"
+                    onClick={() => setCsvText(previousWorkoutCsvTemplate)}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                >
+                    Use template
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleCopyTemplate}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                >
+                    <Copy className="size-4" />
+                    Copy template
+                </button>
+            </div>
 
             <div className="mt-5 grid gap-4">
                 <label className="grid gap-2">
@@ -156,7 +188,7 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
                     <textarea
                         value={csvText}
                         onChange={(event) => setCsvText(event.target.value)}
-                        placeholder={exampleCsv}
+                        placeholder={previousWorkoutCsvTemplate}
                         rows={8}
                         className="rounded-xl border border-stone-200 bg-white px-4 py-3 font-mono text-sm outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                     />
@@ -184,6 +216,29 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
 
             {preview ? (
                 <div className="mt-4 grid gap-3">
+                    {importPlanSummary ? (
+                        <div className="grid grid-cols-2 gap-2 rounded-xl bg-stone-50 p-3 text-sm dark:bg-neutral-900 sm:grid-cols-4">
+                            <div>
+                                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Workouts</p>
+                                <p className="mt-1 text-lg font-bold">{importPlanSummary.workoutCount}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Sets</p>
+                                <p className="mt-1 text-lg font-bold">{importPlanSummary.setCount}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">CSV duplicates</p>
+                                <p className="mt-1 text-lg font-bold">{importPlanSummary.duplicateCount}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Status</p>
+                                <p className="mt-1 text-lg font-bold">
+                                    {importPlanSummary.hasBlockingErrors ? 'Fix rows' : 'Ready'}
+                                </p>
+                            </div>
+                        </div>
+                    ) : null}
+
                     {importPlan && importPlan.blockingErrors.length > 0 ? (
                         <div className="grid gap-2">
                             {importPlan.blockingErrors.slice(0, 4).map((blockingError) => (
@@ -247,10 +302,10 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
                                                 <p className="font-semibold">
-                                                    Set {row.setNumber}: {row.exerciseName}
+                                                    Row {row.rowNumber} - Set {row.setNumber}: {row.exerciseName}
                                                 </p>
                                                 <p className="mt-1 text-stone-600 dark:text-stone-300">
-                                                    {row.loadType.replaceAll('_', ' ')} - {row.weight ?? row.assistWeight ?? row.addedWeight ?? '--'} {row.weightUnit} x {row.reps ?? '--'}
+                                                    {formatPreviousWorkoutCsvRowLoad(row)}
                                                 </p>
                                                 {row.notes ? (
                                                     <p className="mt-1 text-stone-500 dark:text-stone-400">{row.notes}</p>

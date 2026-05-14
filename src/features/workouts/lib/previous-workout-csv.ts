@@ -47,6 +47,12 @@ export const previousWorkoutCsvHeaders = [
     'notes'
 ]
 
+export const previousWorkoutCsvTemplate = `workout_date,workout_name,exercise_name,set_number,load_type,weight,assist_weight,added_weight,weight_unit,reps,notes
+2026-05-01,Push Day,Incline Press,1,weighted,65,,,lb,10,solid
+2026-05-01,Push Day,Knee Raise,1,no_weight,,,,lb,15,
+2026-05-02,Pull Day,Assisted Pull-up,1,assisted,,60,,lb,8,
+2026-05-02,Pull Day,Weighted Pull-up,1,added_weight,,,25,lb,6,`
+
 const requiredPreviousWorkoutCsvHeaders = previousWorkoutCsvHeaders.filter(
     (header) => header !== 'workout_name'
 )
@@ -270,6 +276,42 @@ export function groupPreviousWorkoutCsvRows(rows: ParsedPreviousWorkoutCsvRow[])
 
         return groups
     }, {})
+}
+
+export function formatPreviousWorkoutCsvRowLoad(row: Pick<
+    ParsedPreviousWorkoutCsvRow,
+    'loadType' | 'weight' | 'assistWeight' | 'addedWeight' | 'weightUnit' | 'reps'
+>) {
+    const reps = row.reps ?? '--'
+
+    if (row.loadType === 'no_weight') {
+        return `No weight x ${reps}`
+    }
+
+    if (row.loadType === 'bodyweight') {
+        return `Bodyweight x ${reps}`
+    }
+
+    if (row.loadType === 'assisted') {
+        return `Assisted ${row.assistWeight ?? '--'} ${row.weightUnit} x ${reps}`
+    }
+
+    if (row.loadType === 'added_weight') {
+        return `+${row.addedWeight ?? '--'} ${row.weightUnit} x ${reps}`
+    }
+
+    return `${row.weight ?? '--'} ${row.weightUnit} x ${reps}`
+}
+
+export function summarizePreviousWorkoutImportPlan(plan: PreviousWorkoutImportPlan) {
+    const setCount = plan.workouts.reduce((sum, workout) => sum + workout.rows.length, 0)
+
+    return {
+        workoutCount: plan.workouts.length,
+        setCount,
+        hasBlockingErrors: plan.blockingErrors.length > 0,
+        duplicateCount: plan.duplicateKeys.length,
+    }
 }
 
 export function buildPreviousWorkoutImportPlan(

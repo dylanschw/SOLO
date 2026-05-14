@@ -18,6 +18,7 @@ import {
   useUpsertNutritionLog,
   useUpsertNutritionTarget
 } from './hooks/useNutrition'
+import { RecipesSection } from './components/RecipesSection'
 
 function getTodayDateInputValue() {
   return new Date().toISOString().slice(0, 10)
@@ -37,7 +38,7 @@ function optionalNumberFromInput(value: string) {
   return numberValue
 }
 
-type FoodPageSection = 'today' | 'targets' | 'history';
+type FoodPageSection = 'today' | 'targets' | 'history' | 'recipes';
 
 const foodPageSections: Array<{
   id: FoodPageSection;
@@ -46,6 +47,7 @@ const foodPageSections: Array<{
     { id: 'today', label: 'Today' },
     { id: 'targets', label: 'Targets' },
     { id: 'history', label: 'History' },
+    { id: 'recipes', label: 'Recipes' },
   ];
 
 export function NutritionPage() {
@@ -205,7 +207,7 @@ export function NutritionPage() {
       <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Food</p>
       <h1 className="mt-1 text-3xl font-bold tracking-tight">Nutrition</h1>
 
-      <div className="mt-5 grid grid-cols-3 gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-1 dark:border-neutral-800 dark:bg-neutral-900 sm:grid-cols-4">
         {foodPageSections.map((section) => (
           <button
             key={section.id}
@@ -621,6 +623,8 @@ export function NutritionPage() {
         </>
       ) : null
       }
+
+      {activeSection === 'recipes' ? <RecipesSection /> : null}
     </section >
   )
 }

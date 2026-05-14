@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
     buildActivityHeatmap,
+    calculateActivityHeatmapStats,
+    combineActivityCounts,
     countActivityByDate,
+    getActivityHeatmapRangeConfig,
     getHeatmapLevel,
 } from '../lib/activity-heatmap'
 
@@ -38,5 +41,46 @@ describe('activity heatmap utilities', () => {
         expect(weeks).toHaveLength(2)
         expect(weeks[1].days).toHaveLength(7)
         expect(weeks[1].days.find((day) => day.date === '2026-05-14')?.count).toBe(2)
+    })
+
+    it('calculates streaks and completion percentage', () => {
+        const stats = calculateActivityHeatmapStats({
+            endDate: '2026-05-14',
+            dayCount: 7,
+            countsByDate: new Map([
+                ['2026-05-08', 1],
+                ['2026-05-09', 1],
+                ['2026-05-11', 2],
+                ['2026-05-13', 1],
+                ['2026-05-14', 1],
+            ]),
+        })
+
+        expect(stats.activeDays).toBe(5)
+        expect(stats.totalCount).toBe(6)
+        expect(stats.currentStreak).toBe(2)
+        expect(stats.longestStreak).toBe(2)
+        expect(stats.completionPercentage).toBe(71)
+    })
+
+    it('combines activity counts from multiple sources', () => {
+        const combined = combineActivityCounts([
+            new Map([['2026-05-14', 1]]),
+            new Map([
+                ['2026-05-14', 2],
+                ['2026-05-13', 1],
+            ]),
+        ])
+
+        expect(combined.get('2026-05-14')).toBe(3)
+        expect(combined.get('2026-05-13')).toBe(1)
+    })
+
+    it('builds range configs for recent days and this year', () => {
+        expect(getActivityHeatmapRangeConfig('30d', '2026-05-14')).toMatchObject({
+            dayCount: 30,
+            weekCount: 5,
+        })
+        expect(getActivityHeatmapRangeConfig('year', '2026-05-14').dayCount).toBe(134)
     })
 })
