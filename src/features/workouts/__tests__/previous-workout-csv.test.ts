@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { groupPreviousWorkoutCsvRows, parsePreviousWorkoutCsv } from '../lib/previous-workout-csv'
+import {
+    buildPreviousWorkoutImportPlan,
+    groupPreviousWorkoutCsvRows,
+    parsePreviousWorkoutCsv,
+} from '../lib/previous-workout-csv'
 
 describe('previous workout csv parser', () => {
     it('parses completed workout rows for preview', () => {
@@ -61,6 +65,26 @@ describe('previous workout csv parser', () => {
         const groups = groupPreviousWorkoutCsvRows(preview.rows)
 
         expect(Object.keys(groups)).toEqual(['2026-05-01 - Push Day', '2026-05-02 - Pull Day'])
+    })
+
+    it('supports workout_day as the workout name column', () => {
+        const csv = `workout_date,workout_day,exercise_name,set_number,load_type,weight,assist_weight,added_weight,weight_unit,reps,notes
+2026-05-01,Push Day,Incline Press,1,weighted,65,,,lb,10,`
+
+        const preview = parsePreviousWorkoutCsv(csv)
+
+        expect(preview.rows[0].workoutName).toBe('Push Day')
+    })
+
+    it('builds a blocking import plan for invalid save rows', () => {
+        const csv = `workout_date,workout_name,exercise_name,set_number,load_type,weight,assist_weight,added_weight,weight_unit,reps,notes
+2026-05-01,Push Day,Assisted Pull-up,1,assisted,,,,lb,8,`
+
+        const preview = parsePreviousWorkoutCsv(csv)
+        const plan = buildPreviousWorkoutImportPlan(preview.rows)
+
+        expect(plan.workouts).toHaveLength(1)
+        expect(plan.blockingErrors[0]).toMatch(/assist_weight/)
     })
 
     it('throws for missing required headers', () => {

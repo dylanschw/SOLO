@@ -15,6 +15,7 @@ export type DailyGoalSummary = {
     proteinTarget: number | null;
     proteinLeft: number | null;
     mealsLogged: number | null;
+    weeklyWorkoutTarget: number;
     workoutsCompletedThisWeek: number;
     workoutsRemainingThisWeek: number;
     latestBodyweight: number | null;
@@ -153,6 +154,35 @@ function getCompletedWorkoutsThisWeek(workoutSessions: unknown[], today: string)
     }).length;
 }
 
+function getGoalTargetValue(goalTargets: unknown[] | null | undefined, metric: string) {
+    const goal = goalTargets?.find((item) => {
+        const record = item as Record<string, unknown> | null | undefined;
+        const goalMetric = getTextField(item, ['metric']);
+        const isActive = record?.is_active;
+        const deletedAt = getTextField(item, ['deleted_at']);
+
+        return goalMetric === metric && isActive !== false && !deletedAt;
+    });
+
+    return getNumberField(goal, ['target_value']);
+}
+
+function findHealthMetricValueForDate(
+    entries: unknown[] | null | undefined,
+    metricType: string,
+    today: string
+) {
+    const entry = entries?.find((item) => {
+        const type = getTextField(item, ['metric_type']);
+        const date = getTextField(item, ['metric_date', 'date']);
+        const deletedAt = getTextField(item, ['deleted_at']);
+
+        return type === metricType && date === today && !deletedAt;
+    });
+
+    return getNumberField(entry, ['value']);
+}
+
 export function buildDailyGoalSummary(input: {
     today: string;
     preferredUnit: WeightUnit;
@@ -160,9 +190,12 @@ export function buildDailyGoalSummary(input: {
     nutritionTarget: unknown | null;
     workoutSessions: unknown[];
     bodyweightEntries: unknown[];
+    goalTargets?: unknown[];
+    healthMetricEntries?: unknown[];
     weeklyWorkoutTarget?: number;
 }): DailyGoalSummary {
-    const weeklyWorkoutTarget = input.weeklyWorkoutTarget ?? 4;
+    const weeklyWorkoutTarget =
+        getGoalTargetValue(input.goalTargets, 'workouts_per_week') ?? input.weeklyWorkoutTarget ?? 4;
 
     const caloriesLogged = getNumberField(input.todayNutritionLog, [
         'calories',
@@ -170,7 +203,7 @@ export function buildDailyGoalSummary(input: {
         'calories_logged'
     ]);
 
-    const calorieTarget = getNumberField(input.nutritionTarget, [
+    const calorieTarget = getGoalTargetValue(input.goalTargets, 'calories') ?? getNumberField(input.nutritionTarget, [
         'calories',
         'target_calories',
         'daily_calories',
@@ -184,7 +217,7 @@ export function buildDailyGoalSummary(input: {
         'total_protein_g'
     ]);
 
-    const proteinTarget = getNumberField(input.nutritionTarget, [
+    const proteinTarget = getGoalTargetValue(input.goalTargets, 'protein') ?? getNumberField(input.nutritionTarget, [
         'protein_g',
         'target_protein_g',
         'protein',
@@ -253,6 +286,40 @@ export function buildDailyGoalSummary(input: {
         });
     }
 
+    const stepsTarget = getGoalTargetValue(input.goalTargets, 'steps');
+    const stepsLogged = findHealthMetricValueForDate(input.healthMetricEntries, 'steps', input.today);
+
+    if (stepsTarget !== null) {
+        const stepsLeft = stepsLogged === null ? stepsTarget : Math.max(0, Math.round(stepsTarget - stepsLogged));
+
+        actions.push({
+            title: stepsLeft === 0 ? 'Steps are on track' : `${stepsLeft} steps left`,
+            description:
+                stepsLogged === null
+                    ? 'Add steps manually on the health page until native device sync exists.'
+                    : stepsLeft === 0
+                        ? 'You have reached your steps target for today.'
+                        : 'Add movement to keep your daily activity on pace.',
+            status: stepsLeft === 0 ? 'good' : 'neutral'
+        });
+    }
+
+    const sleepTarget = getGoalTargetValue(input.goalTargets, 'sleep');
+    const sleepLogged = findHealthMetricValueForDate(input.healthMetricEntries, 'sleep_hours', input.today);
+
+    if (sleepTarget !== null && sleepLogged !== null) {
+        const sleepLeft = Math.max(0, sleepTarget - sleepLogged);
+
+        actions.push({
+            title: sleepLeft === 0 ? 'Sleep goal met' : `${sleepLeft.toFixed(1)} sleep hours short`,
+            description:
+                sleepLeft === 0
+                    ? 'Your logged sleep meets your target.'
+                    : 'Use sleep trend as a recovery signal before pushing training hard.',
+            status: sleepLeft === 0 ? 'good' : 'warning'
+        });
+    }
+
     return {
         caloriesLogged,
         calorieTarget,
@@ -261,6 +328,7 @@ export function buildDailyGoalSummary(input: {
         proteinTarget,
         proteinLeft,
         mealsLogged,
+        weeklyWorkoutTarget,
         workoutsCompletedThisWeek,
         workoutsRemainingThisWeek,
         latestBodyweight,

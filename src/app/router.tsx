@@ -5,6 +5,7 @@ import { PublicOnlyRoute } from '../features/auth/components/PublicOnlyRoute'
 import { LandingPage } from '../features/auth/LandingPage'
 import { BodyweightPage } from '../features/bodyweight/BodyweightPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { HealthPage } from '../features/health/HealthPage'
 import { NutritionPage } from '../features/nutrition/NutritionPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { WorkoutsPage } from '../features/workouts/WorkoutsPage'
@@ -60,6 +61,10 @@ export const router = createBrowserRouter([
           {
             path: 'scheduling',
             element: <SchedulingPage />
+          },
+          {
+            path: 'health',
+            element: <HealthPage />
           },
           {
             path: 'settings',

@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom'
 import type { WeightUnit } from '../../lib/supabase/types'
 import { signOut } from '../auth/lib/auth-client'
 import { useAuth } from '../auth/hooks/useAuth'
+import { useGoalTargets, useUpsertGoalTarget } from '../goals/hooks/useGoals'
+import { findGoalTarget } from '../goals/lib/goals'
 import { useProfile, useUpdateProfile } from '../profile/hooks/useProfile'
 import { applyTheme } from '../../lib/utils/theme'
 
@@ -49,14 +51,25 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const profileQuery = useProfile()
   const updateProfile = useUpdateProfile()
+  const goalsQuery = useGoalTargets()
+  const upsertGoalTarget = useUpsertGoalTarget()
 
   const [fullName, setFullName] = useState('')
   const [preferredWeightUnit, setPreferredWeightUnit] = useState<WeightUnit>('lb')
   const [themePreference, setThemePreference] = useState<'light' | 'dark'>('light')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [bodyweightGoal, setBodyweightGoal] = useState('')
+  const [calorieGoal, setCalorieGoal] = useState('')
+  const [proteinGoal, setProteinGoal] = useState('')
+  const [workoutGoal, setWorkoutGoal] = useState('4')
+  const [waterGoal, setWaterGoal] = useState('3000')
+  const [sleepGoal, setSleepGoal] = useState('8')
+  const [stepsGoal, setStepsGoal] = useState('8000')
+  const [restingHeartRateGoal, setRestingHeartRateGoal] = useState('')
 
   const profile = profileQuery.data
+  const goalTargets = goalsQuery.data ?? []
 
   useEffect(() => {
     if (!profile) {
@@ -70,6 +83,108 @@ export function SettingsPage() {
     setThemePreference(savedTheme)
     applyTheme(savedTheme)
   }, [profile])
+
+  useEffect(() => {
+    if (!goalsQuery.data) {
+      return
+    }
+
+    const bodyweight = findGoalTarget(goalTargets, 'bodyweight')
+    const calories = findGoalTarget(goalTargets, 'calories')
+    const protein = findGoalTarget(goalTargets, 'protein')
+    const workouts = findGoalTarget(goalTargets, 'workouts_per_week')
+    const water = findGoalTarget(goalTargets, 'water')
+    const sleep = findGoalTarget(goalTargets, 'sleep')
+    const steps = findGoalTarget(goalTargets, 'steps')
+    const restingHeartRate = findGoalTarget(goalTargets, 'resting_heart_rate')
+
+    setBodyweightGoal(bodyweight ? String(bodyweight.target_value) : '')
+    setCalorieGoal(calories ? String(calories.target_value) : '')
+    setProteinGoal(protein ? String(protein.target_value) : '')
+    setWorkoutGoal(workouts ? String(workouts.target_value) : '4')
+    setWaterGoal(water ? String(water.target_value) : '3000')
+    setSleepGoal(sleep ? String(sleep.target_value) : '8')
+    setStepsGoal(steps ? String(steps.target_value) : '8000')
+    setRestingHeartRateGoal(restingHeartRate ? String(restingHeartRate.target_value) : '')
+  }, [goalsQuery.data, goalTargets])
+
+  function parseGoalValue(value: string) {
+    const parsed = Number(value)
+
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+  }
+
+  async function handleSaveGoals(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const goals = [
+      {
+        metric: 'bodyweight' as const,
+        value: parseGoalValue(bodyweightGoal),
+        unit: preferredWeightUnit,
+        period: 'target' as const
+      },
+      {
+        metric: 'calories' as const,
+        value: parseGoalValue(calorieGoal),
+        unit: 'kcal',
+        period: 'daily' as const
+      },
+      {
+        metric: 'protein' as const,
+        value: parseGoalValue(proteinGoal),
+        unit: 'g',
+        period: 'daily' as const
+      },
+      {
+        metric: 'workouts_per_week' as const,
+        value: parseGoalValue(workoutGoal),
+        unit: 'workouts',
+        period: 'weekly' as const
+      },
+      {
+        metric: 'water' as const,
+        value: parseGoalValue(waterGoal),
+        unit: 'ml',
+        period: 'daily' as const
+      },
+      {
+        metric: 'sleep' as const,
+        value: parseGoalValue(sleepGoal),
+        unit: 'hours',
+        period: 'daily' as const
+      },
+      {
+        metric: 'steps' as const,
+        value: parseGoalValue(stepsGoal),
+        unit: 'steps',
+        period: 'daily' as const
+      },
+      {
+        metric: 'resting_heart_rate' as const,
+        value: parseGoalValue(restingHeartRateGoal),
+        unit: 'bpm',
+        period: 'daily' as const
+      }
+    ].filter((goal) => goal.value !== null && goal.value > 0)
+
+    try {
+      for (const goal of goals) {
+        await upsertGoalTarget.mutateAsync({
+          metric: goal.metric,
+          targetValue: goal.value ?? 0,
+          unit: goal.unit,
+          period: goal.period
+        })
+      }
+
+      setStatusMessage('Goals saved.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not save goals.')
+    }
+  }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -210,6 +325,119 @@ export function SettingsPage() {
           ) : null}
         </form>
 
+        <form
+          onSubmit={handleSaveGoals}
+          className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950"
+        >
+          <h2 className="text-xl font-bold">Goal targets</h2>
+
+          {goalsQuery.isLoading ? (
+            <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">Loading goals...</p>
+          ) : null}
+
+          <div className="mt-5 grid gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Bodyweight target ({preferredWeightUnit})</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={bodyweightGoal}
+                  onChange={(event) => setBodyweightGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Calories/day</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={calorieGoal}
+                  onChange={(event) => setCalorieGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Protein/day (g)</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={proteinGoal}
+                  onChange={(event) => setProteinGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Workouts/week</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={workoutGoal}
+                  onChange={(event) => setWorkoutGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Water/day (ml)</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={waterGoal}
+                  onChange={(event) => setWaterGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Sleep/night (hours)</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  value={sleepGoal}
+                  onChange={(event) => setSleepGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Steps/day</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={stepsGoal}
+                  onChange={(event) => setStepsGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold">Resting heart rate target</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={restingHeartRateGoal}
+                  onChange={(event) => setRestingHeartRateGoal(event.target.value)}
+                  className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={upsertGoalTarget.isPending}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <Save className="size-4" />
+              {upsertGoalTarget.isPending ? 'Saving...' : 'Save goals'}
+            </button>
+          </div>
+        </form>
 
       </div>
     </section>
