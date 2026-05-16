@@ -17,6 +17,7 @@ export type UpsertRecipeInput = {
     instructions?: string | null
     notes?: string | null
     category?: string | null
+    isFavorite?: boolean
 }
 
 export type UpsertMealPrepTemplateInput = {
@@ -28,6 +29,10 @@ export type UpsertMealPrepTemplateInput = {
     mealsText?: string | null
     groceryNotes?: string | null
     prepNotes?: string | null
+    totalCalories?: number | null
+    totalProteinG?: number | null
+    totalCarbsG?: number | null
+    totalFatG?: number | null
     notes?: string | null
 }
 
@@ -36,6 +41,13 @@ export type RecipePerServing = {
     proteinG: number | null
     carbsG: number | null
     fatG: number | null
+}
+
+export type RecipeNutritionTotals = RecipePerServing
+
+export type RecipeFilterInput = {
+    search?: string
+    favoritesOnly?: boolean
 }
 
 function createClientId() {
@@ -79,6 +91,84 @@ export function calculateRecipePerServing(input: {
     }
 }
 
+export function calculateScaledRecipeNutrition(input: {
+    recipe: Pick<Recipe, 'calories' | 'protein_g' | 'carbs_g' | 'fat_g' | 'servings'>
+    servings: number
+}): RecipeNutritionTotals {
+    const perServing = calculateRecipePerServing({
+        calories: input.recipe.calories,
+        proteinG: input.recipe.protein_g,
+        carbsG: input.recipe.carbs_g,
+        fatG: input.recipe.fat_g,
+        servings: input.recipe.servings,
+    })
+    const servings = Math.max(0, input.servings)
+
+    return {
+        calories: perServing.calories === null ? null : Math.round(perServing.calories * servings),
+        proteinG: roundMacro(perServing.proteinG === null ? null : perServing.proteinG * servings),
+        carbsG: roundMacro(perServing.carbsG === null ? null : perServing.carbsG * servings),
+        fatG: roundMacro(perServing.fatG === null ? null : perServing.fatG * servings),
+    }
+}
+
+export function filterRecipes(recipes: Recipe[], input: RecipeFilterInput) {
+    const search = input.search?.trim().toLowerCase() ?? ''
+
+    return recipes
+        .filter((recipe) => !input.favoritesOnly || recipe.is_favorite)
+        .filter((recipe) => {
+            if (!search) {
+                return true
+            }
+
+            return [
+                recipe.name,
+                recipe.category,
+                recipe.ingredients,
+                recipe.notes,
+            ].some((value) => value?.toLowerCase().includes(search))
+        })
+        .sort((a, b) => {
+            if (a.is_favorite !== b.is_favorite) {
+                return a.is_favorite ? -1 : 1
+            }
+
+            return a.name.localeCompare(b.name)
+        })
+}
+
+export function filterMealPrepTemplates(templates: MealPrepTemplate[], searchText: string) {
+    const search = searchText.trim().toLowerCase()
+
+    if (!search) {
+        return templates
+    }
+
+    return templates.filter((template) =>
+        [
+            template.name,
+            template.meals_covered,
+            template.meals_text,
+            template.grocery_notes,
+            template.prep_notes,
+            template.notes,
+        ].some((value) => value?.toLowerCase().includes(search))
+    )
+}
+
+export function calculateMealPrepTotals(template: Pick<
+    MealPrepTemplate,
+    'total_calories' | 'total_protein_g' | 'total_carbs_g' | 'total_fat_g'
+>) {
+    return {
+        calories: template.total_calories,
+        proteinG: template.total_protein_g,
+        carbsG: template.total_carbs_g,
+        fatG: template.total_fat_g,
+    }
+}
+
 export async function listRecipes(userId: string) {
     const { data, error } = await supabase
         .from('recipes')
@@ -107,6 +197,7 @@ export async function upsertRecipe(input: UpsertRecipeInput) {
         instructions: cleanText(input.instructions),
         notes: cleanText(input.notes),
         category: cleanText(input.category),
+        is_favorite: input.isFavorite ?? false,
         sync_status: 'synced' as const,
     }
 
@@ -162,6 +253,25 @@ export async function deleteRecipe(userId: string, recipeId: string) {
     return data
 }
 
+export async function updateRecipeFavorite(userId: string, recipeId: string, isFavorite: boolean) {
+    const { data, error } = await supabase
+        .from('recipes')
+        .update({
+            is_favorite: isFavorite,
+            sync_status: 'synced',
+        })
+        .eq('user_id', userId)
+        .eq('id', recipeId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
 export async function listMealPrepTemplates(userId: string) {
     const { data, error } = await supabase
         .from('meal_prep_templates')
@@ -186,6 +296,10 @@ export async function upsertMealPrepTemplate(input: UpsertMealPrepTemplateInput)
         meals_text: cleanText(input.mealsText),
         grocery_notes: cleanText(input.groceryNotes),
         prep_notes: cleanText(input.prepNotes),
+        total_calories: cleanOptionalNumber(input.totalCalories),
+        total_protein_g: cleanOptionalNumber(input.totalProteinG),
+        total_carbs_g: cleanOptionalNumber(input.totalCarbsG),
+        total_fat_g: cleanOptionalNumber(input.totalFatG),
         notes: cleanText(input.notes),
         sync_status: 'synced' as const,
     }

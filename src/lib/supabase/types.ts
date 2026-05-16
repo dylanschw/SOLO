@@ -38,6 +38,17 @@ export type HealthMetricType =
 
 export type HealthMetricSource = 'manual' | 'apple_health' | 'apple_watch' | 'imported'
 
+export type ReminderType =
+  | 'workout'
+  | 'meal_breakfast'
+  | 'meal_lunch'
+  | 'meal_dinner'
+  | 'weigh_in'
+  | 'sleep'
+  | 'scheduling'
+  | 'water'
+  | 'creatine'
+
 export type Database = {
   public: {
     Tables: {
@@ -337,6 +348,10 @@ export type Database = {
           muscle_group: string | null
           equipment: string | null
           notes: string | null
+          is_archived: boolean
+          movement_pattern: string | null
+          primary_muscle: string | null
+          alternate_group: string | null
           client_id: string
           version: number
           deleted_at: string | null
@@ -351,6 +366,10 @@ export type Database = {
           muscle_group?: string | null
           equipment?: string | null
           notes?: string | null
+          is_archived?: boolean
+          movement_pattern?: string | null
+          primary_muscle?: string | null
+          alternate_group?: string | null
           client_id: string
           version?: number
           deleted_at?: string | null
@@ -365,6 +384,10 @@ export type Database = {
           muscle_group?: string | null
           equipment?: string | null
           notes?: string | null
+          is_archived?: boolean
+          movement_pattern?: string | null
+          primary_muscle?: string | null
+          alternate_group?: string | null
           client_id?: string
           version?: number
           deleted_at?: string | null
@@ -454,6 +477,7 @@ export type Database = {
           user_id: string
           program_id: string | null
           workout_day_id: string | null
+          import_batch_id: string | null
           session_date: string
           started_at: string | null
           completed_at: string | null
@@ -471,6 +495,7 @@ export type Database = {
           user_id: string
           program_id?: string | null
           workout_day_id?: string | null
+          import_batch_id?: string | null
           session_date?: string
           started_at?: string | null
           completed_at?: string | null
@@ -488,6 +513,7 @@ export type Database = {
           user_id?: string
           program_id?: string | null
           workout_day_id?: string | null
+          import_batch_id?: string | null
           session_date?: string
           started_at?: string | null
           completed_at?: string | null
@@ -510,6 +536,7 @@ export type Database = {
           workout_session_id: string
           planned_exercise_id: string | null
           exercise_id: string
+          import_batch_id: string | null
           set_number: number
           set_type: LoggedSetType
           load_type: WorkoutSetLoadType
@@ -533,6 +560,7 @@ export type Database = {
           workout_session_id: string
           planned_exercise_id?: string | null
           exercise_id: string
+          import_batch_id?: string | null
           set_number: number
           set_type?: LoggedSetType
           load_type?: WorkoutSetLoadType
@@ -556,6 +584,7 @@ export type Database = {
           workout_session_id?: string
           planned_exercise_id?: string | null
           exercise_id?: string
+          import_batch_id?: string | null
           set_number?: number
           set_type?: LoggedSetType
           load_type?: WorkoutSetLoadType
@@ -752,6 +781,7 @@ export type Database = {
           instructions: string | null
           notes: string | null
           category: string | null
+          is_favorite: boolean
           client_id: string
           sync_status: SyncStatus
           version: number
@@ -772,6 +802,7 @@ export type Database = {
           instructions?: string | null
           notes?: string | null
           category?: string | null
+          is_favorite?: boolean
           client_id: string
           sync_status?: SyncStatus
           version?: number
@@ -792,6 +823,7 @@ export type Database = {
           instructions?: string | null
           notes?: string | null
           category?: string | null
+          is_favorite?: boolean
           client_id?: string
           sync_status?: SyncStatus
           version?: number
@@ -812,6 +844,10 @@ export type Database = {
           meals_text: string | null
           grocery_notes: string | null
           prep_notes: string | null
+          total_calories: number | null
+          total_protein_g: number | null
+          total_carbs_g: number | null
+          total_fat_g: number | null
           notes: string | null
           client_id: string
           sync_status: SyncStatus
@@ -829,6 +865,10 @@ export type Database = {
           meals_text?: string | null
           grocery_notes?: string | null
           prep_notes?: string | null
+          total_calories?: number | null
+          total_protein_g?: number | null
+          total_carbs_g?: number | null
+          total_fat_g?: number | null
           notes?: string | null
           client_id: string
           sync_status?: SyncStatus
@@ -846,7 +886,112 @@ export type Database = {
           meals_text?: string | null
           grocery_notes?: string | null
           prep_notes?: string | null
+          total_calories?: number | null
+          total_protein_g?: number | null
+          total_carbs_g?: number | null
+          total_fat_g?: number | null
           notes?: string | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      reminder_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          reminder_type: ReminderType
+          is_enabled: boolean
+          reminder_time: string | null
+          days_of_week: number[]
+          notes: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          reminder_type: ReminderType
+          is_enabled?: boolean
+          reminder_time?: string | null
+          days_of_week?: number[]
+          notes?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          reminder_type?: ReminderType
+          is_enabled?: boolean
+          reminder_time?: string | null
+          days_of_week?: number[]
+          notes?: string | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      workout_import_batches: {
+        Row: {
+          id: string
+          user_id: string
+          source: 'previous_workout_csv'
+          imported_at: string
+          workout_count: number
+          set_count: number
+          notes: string | null
+          reverted_at: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          source?: 'previous_workout_csv'
+          imported_at?: string
+          workout_count?: number
+          set_count?: number
+          notes?: string | null
+          reverted_at?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          source?: 'previous_workout_csv'
+          imported_at?: string
+          workout_count?: number
+          set_count?: number
+          notes?: string | null
+          reverted_at?: string | null
           client_id?: string
           sync_status?: SyncStatus
           version?: number

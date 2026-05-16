@@ -5,6 +5,7 @@ import {
     deleteRecipe,
     listMealPrepTemplates,
     listRecipes,
+    updateRecipeFavorite,
     upsertMealPrepTemplate,
     upsertRecipe,
     type UpsertMealPrepTemplateInput,
@@ -75,6 +76,24 @@ export function useDeleteRecipe() {
             }
 
             return deleteRecipe(user.id, recipeId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['recipes', user?.id] })
+        },
+    })
+}
+
+export function useUpdateRecipeFavorite() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: { recipeId: string; isFavorite: boolean }) => {
+            if (!user) {
+                throw new Error('Cannot update recipe without a signed-in user')
+            }
+
+            return updateRecipeFavorite(user.id, input.recipeId, input.isFavorite)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['recipes', user?.id] })
