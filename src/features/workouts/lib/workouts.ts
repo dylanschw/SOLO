@@ -28,6 +28,13 @@ export type CreateExerciseInput = {
     muscleGroup?: string | null
     equipment?: string | null
     notes?: string | null
+    movementPattern?: string | null
+    primaryMuscle?: string | null
+    alternateGroup?: string | null
+}
+
+export type UpdateExerciseInput = CreateExerciseInput & {
+    exerciseId: string
 }
 
 export type AddPlannedExerciseInput = {
@@ -96,6 +103,40 @@ function cleanOptionalNumber(value: number | null | undefined) {
     }
 
     return value
+}
+
+function getExerciseSearchText(exercise: Exercise) {
+    return [
+        exercise.name,
+        exercise.muscle_group,
+        exercise.primary_muscle,
+        exercise.equipment,
+        exercise.movement_pattern,
+        exercise.alternate_group,
+        exercise.notes,
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+}
+
+export function filterExercisesForLibrary(input: {
+    exercises: Exercise[]
+    searchText?: string
+    includeArchived?: boolean
+}) {
+    const search = input.searchText?.trim().toLowerCase() ?? ''
+
+    return input.exercises
+        .filter((exercise) => input.includeArchived || !exercise.is_archived)
+        .filter((exercise) => !search || getExerciseSearchText(exercise).includes(search))
+        .sort((a, b) => {
+            if (a.is_archived !== b.is_archived) {
+                return a.is_archived ? 1 : -1
+            }
+
+            return a.name.localeCompare(b.name)
+        })
 }
 
 export async function listWorkoutPrograms(userId: string) {
@@ -248,9 +289,76 @@ export async function createExercise(input: CreateExerciseInput) {
             muscle_group: cleanText(input.muscleGroup),
             equipment: cleanText(input.equipment),
             notes: cleanText(input.notes),
+            is_archived: false,
+            movement_pattern: cleanText(input.movementPattern),
+            primary_muscle: cleanText(input.primaryMuscle),
+            alternate_group: cleanText(input.alternateGroup),
             client_id: createClientId(),
             sync_status: 'synced'
         })
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function updateExercise(input: UpdateExerciseInput) {
+    const { data, error } = await supabase
+        .from('exercises')
+        .update({
+            name: input.name.trim(),
+            muscle_group: cleanText(input.muscleGroup),
+            equipment: cleanText(input.equipment),
+            notes: cleanText(input.notes),
+            movement_pattern: cleanText(input.movementPattern),
+            primary_muscle: cleanText(input.primaryMuscle),
+            alternate_group: cleanText(input.alternateGroup),
+            sync_status: 'synced'
+        })
+        .eq('id', input.exerciseId)
+        .eq('user_id', input.userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function archiveExercise(userId: string, exerciseId: string) {
+    const { data, error } = await supabase
+        .from('exercises')
+        .update({
+            is_archived: true,
+            sync_status: 'synced'
+        })
+        .eq('id', exerciseId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+    if (error) {
+        throw error
+    }
+
+    return data
+}
+
+export async function restoreExercise(userId: string, exerciseId: string) {
+    const { data, error } = await supabase
+        .from('exercises')
+        .update({
+            is_archived: false,
+            sync_status: 'synced'
+        })
+        .eq('id', exerciseId)
+        .eq('user_id', userId)
         .select()
         .single()
 

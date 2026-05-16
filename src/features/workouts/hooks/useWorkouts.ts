@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../auth/hooks/useAuth'
 import {
     addPlannedExercise,
+    archiveExercise,
     archiveWorkoutProgram,
     createExercise,
     createWorkoutDay,
@@ -14,6 +15,8 @@ import {
     listWorkoutDays,
     listWorkoutPrograms,
     setActiveWorkoutProgram,
+    restoreExercise,
+    updateExercise,
     updatePlannedExercise,
     updateWorkoutDay,
     updateWorkoutProgram,
@@ -22,6 +25,7 @@ import {
     type CreateProgramInput,
     type CreateWorkoutDayInput,
     type UpdatePlannedExerciseInput,
+    type UpdateExerciseInput,
     type UpdateProgramInput,
     type UpdateWorkoutDayInput
 } from '../lib/workouts'
@@ -325,6 +329,63 @@ export function useDeletePlannedExercise() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['planned-exercises', user?.id] })
+        }
+    })
+}
+
+export function useUpdateExercise() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (input: Omit<UpdateExerciseInput, 'userId'>) => {
+            if (!user) {
+                throw new Error('Cannot update exercise without a signed-in user')
+            }
+
+            return updateExercise({
+                ...input,
+                userId: user.id
+            })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['exercises', user?.id] })
+        }
+    })
+}
+
+export function useArchiveExercise() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (exerciseId: string) => {
+            if (!user) {
+                throw new Error('Cannot archive exercise without a signed-in user')
+            }
+
+            return archiveExercise(user.id, exerciseId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['exercises', user?.id] })
+        }
+    })
+}
+
+export function useRestoreExercise() {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (exerciseId: string) => {
+            if (!user) {
+                throw new Error('Cannot restore exercise without a signed-in user')
+            }
+
+            return restoreExercise(user.id, exerciseId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['exercises', user?.id] })
         }
     })
 }

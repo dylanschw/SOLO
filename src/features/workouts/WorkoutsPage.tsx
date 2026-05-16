@@ -1,4 +1,4 @@
-import { Archive, Dumbbell, Pencil, Play, Plus, Save, Star, Trash2, X } from 'lucide-react'
+import { Archive, Dumbbell, Pencil, Play, Plus, RotateCcw, Save, Star, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ExerciseSetType } from '../../lib/supabase/types'
@@ -13,12 +13,15 @@ import { WorkoutTextImportWizard } from './components/WorkoutTextImportWizard'
 import {
   useActiveWorkoutProgram,
   useAddPlannedExercise,
+  useArchiveExercise,
   useCreateExercise,
   useCreateWorkoutDay,
   useCreateWorkoutProgram,
   useExercises,
   usePlannedExercises,
   useSetActiveWorkoutProgram,
+  useRestoreExercise,
+  useUpdateExercise,
   useWorkoutDays,
   useArchiveWorkoutProgram,
   useDeletePlannedExercise,
@@ -36,8 +39,10 @@ import {
   useWorkoutSessions
 } from './hooks/useWorkoutSessions';
 import { getExerciseName, getPlannedExercisesForDay, sortWorkoutDays } from './lib/workout-view'
-import type { WorkoutDay } from './lib/workouts'
+import { filterExercisesForLibrary } from './lib/workouts'
+import type { Exercise, WorkoutDay } from './lib/workouts'
 import type { WorkoutSession } from './lib/workout-sessions'
+
 
 function optionalNumberFromInput(value: string) {
   if (!value.trim()) {
@@ -89,6 +94,9 @@ export function WorkoutsPage() {
   const createDay = useCreateWorkoutDay()
   const exercisesQuery = useExercises()
   const createExercise = useCreateExercise()
+  const updateExercise = useUpdateExercise()
+  const archiveExercise = useArchiveExercise()
+  const restoreExercise = useRestoreExercise()
   const addPlannedExercise = useAddPlannedExercise()
   const updateProgram = useUpdateWorkoutProgram()
   const archiveProgram = useArchiveWorkoutProgram()
@@ -112,6 +120,7 @@ export function WorkoutsPage() {
   const plannedExercisesQuery = usePlannedExercises(dayIds)
   const plannedExercises = plannedExercisesQuery.data ?? []
   const exercises = exercisesQuery.data ?? []
+  const activeExercises = exercises.filter((exercise) => !exercise.is_archived)
   const recentSessions = sessionsQuery.data ?? []
 
   const preferredUnit = profileQuery.data?.preferred_weight_unit ?? 'lb';
@@ -126,6 +135,7 @@ export function WorkoutsPage() {
       }),
     [allWorkoutSets, exercises, preferredUnit]
   );
+
 
   const inProgressSessions = recentSessions.filter((session) => session.status === 'in_progress')
 
@@ -177,6 +187,19 @@ export function WorkoutsPage() {
   const [exerciseMuscleGroup, setExerciseMuscleGroup] = useState('')
   const [exerciseEquipment, setExerciseEquipment] = useState('')
   const [exerciseNotes, setExerciseNotes] = useState('')
+  const [exerciseMovementPattern, setExerciseMovementPattern] = useState('')
+  const [exercisePrimaryMuscle, setExercisePrimaryMuscle] = useState('')
+  const [exerciseAlternateGroup, setExerciseAlternateGroup] = useState('')
+  const [exerciseSearch, setExerciseSearch] = useState('')
+  const [showArchivedExercises, setShowArchivedExercises] = useState(false)
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null)
+  const [editingExerciseName, setEditingExerciseName] = useState('')
+  const [editingExerciseMuscleGroup, setEditingExerciseMuscleGroup] = useState('')
+  const [editingExerciseEquipment, setEditingExerciseEquipment] = useState('')
+  const [editingExerciseNotes, setEditingExerciseNotes] = useState('')
+  const [editingExerciseMovementPattern, setEditingExerciseMovementPattern] = useState('')
+  const [editingExercisePrimaryMuscle, setEditingExercisePrimaryMuscle] = useState('')
+  const [editingExerciseAlternateGroup, setEditingExerciseAlternateGroup] = useState('')
 
   const [selectedDayId, setSelectedDayId] = useState('')
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
@@ -195,6 +218,11 @@ export function WorkoutsPage() {
   const [deloadRule, setDeloadRule] = useState('Drop weight to 60 to 70 percent, use RPE 6 to 7, keep rest times, reduce to 2 sets')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const filteredLibraryExercises = filterExercisesForLibrary({
+    exercises,
+    searchText: exerciseSearch,
+    includeArchived: showArchivedExercises,
+  })
 
   function refetchWorkoutData() {
     programsQuery.refetch()
@@ -661,12 +689,26 @@ export function WorkoutsPage() {
       return
     }
 
+    const duplicateExercise = exercises.find(
+      (exercise) =>
+        !exercise.is_archived &&
+        exercise.name.trim().toLowerCase() === exerciseName.trim().toLowerCase()
+    )
+
+    if (duplicateExercise) {
+      setErrorMessage('An active exercise with that name already exists.')
+      return
+    }
+
     try {
       const createdExercise = await createExercise.mutateAsync({
         name: exerciseName,
         muscleGroup: exerciseMuscleGroup,
         equipment: exerciseEquipment,
-        notes: exerciseNotes
+        notes: exerciseNotes,
+        movementPattern: exerciseMovementPattern,
+        primaryMuscle: exercisePrimaryMuscle,
+        alternateGroup: exerciseAlternateGroup
       })
 
       setSelectedExerciseId(createdExercise.id)
@@ -674,9 +716,108 @@ export function WorkoutsPage() {
       setExerciseMuscleGroup('')
       setExerciseEquipment('')
       setExerciseNotes('')
+      setExerciseMovementPattern('')
+      setExercisePrimaryMuscle('')
+      setExerciseAlternateGroup('')
       setStatusMessage('Exercise created.')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not create exercise.')
+    }
+  }
+
+  function startEditingExercise(exercise: Exercise) {
+    setEditingExerciseId(exercise.id)
+    setEditingExerciseName(exercise.name)
+    setEditingExerciseMuscleGroup(exercise.muscle_group ?? '')
+    setEditingExerciseEquipment(exercise.equipment ?? '')
+    setEditingExerciseNotes(exercise.notes ?? '')
+    setEditingExerciseMovementPattern(exercise.movement_pattern ?? '')
+    setEditingExercisePrimaryMuscle(exercise.primary_muscle ?? '')
+    setEditingExerciseAlternateGroup(exercise.alternate_group ?? '')
+  }
+
+  function cancelEditingExercise() {
+    setEditingExerciseId(null)
+    setEditingExerciseName('')
+    setEditingExerciseMuscleGroup('')
+    setEditingExerciseEquipment('')
+    setEditingExerciseNotes('')
+    setEditingExerciseMovementPattern('')
+    setEditingExercisePrimaryMuscle('')
+    setEditingExerciseAlternateGroup('')
+  }
+
+  async function handleUpdateExercise(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    if (!editingExerciseId) {
+      return
+    }
+
+    if (!editingExerciseName.trim()) {
+      setErrorMessage('Exercise name is required.')
+      return
+    }
+
+    const duplicateExercise = exercises.find(
+      (exercise) =>
+        exercise.id !== editingExerciseId &&
+        !exercise.is_archived &&
+        exercise.name.trim().toLowerCase() === editingExerciseName.trim().toLowerCase()
+    )
+
+    if (duplicateExercise) {
+      setErrorMessage('Another active exercise already uses that name.')
+      return
+    }
+
+    try {
+      await updateExercise.mutateAsync({
+        exerciseId: editingExerciseId,
+        name: editingExerciseName,
+        muscleGroup: editingExerciseMuscleGroup,
+        equipment: editingExerciseEquipment,
+        notes: editingExerciseNotes,
+        movementPattern: editingExerciseMovementPattern,
+        primaryMuscle: editingExercisePrimaryMuscle,
+        alternateGroup: editingExerciseAlternateGroup,
+      })
+      cancelEditingExercise()
+      setStatusMessage('Exercise updated.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not update exercise.')
+    }
+  }
+
+  async function handleArchiveExercise(exerciseId: string) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const confirmed = window.confirm('Archive this exercise? Workout history will stay intact.')
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await archiveExercise.mutateAsync(exerciseId)
+      setStatusMessage('Exercise archived.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not archive exercise.')
+    }
+  }
+
+  async function handleRestoreExercise(exerciseId: string) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    try {
+      await restoreExercise.mutateAsync(exerciseId)
+      setStatusMessage('Exercise restored.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not restore exercise.')
     }
   }
 
@@ -1196,6 +1337,35 @@ export function WorkoutsPage() {
                   </label>
                 </div>
 
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Primary muscle</span>
+                    <input
+                      value={exercisePrimaryMuscle}
+                      onChange={(event) => setExercisePrimaryMuscle(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Movement pattern</span>
+                    <input
+                      value={exerciseMovementPattern}
+                      onChange={(event) => setExerciseMovementPattern(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">Alternate group</span>
+                    <input
+                      value={exerciseAlternateGroup}
+                      onChange={(event) => setExerciseAlternateGroup(event.target.value)}
+                      className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                    />
+                  </label>
+                </div>
+
                 <label className="grid gap-2">
                   <span className="text-sm font-semibold">Notes</span>
                   <textarea
@@ -1217,6 +1387,199 @@ export function WorkoutsPage() {
                 </button>
               </div>
             </form>
+
+            <article className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+              <h2 className="text-xl font-bold">Exercise library</h2>
+              <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                Manage your own exercise names and alternate metadata. Archived exercises stay in workout history.
+              </p>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold">Search exercises</span>
+                  <input
+                    value={exerciseSearch}
+                    onChange={(event) => setExerciseSearch(event.target.value)}
+                    placeholder="Search your library"
+                    className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                </label>
+
+                <label className="flex min-h-12 items-center gap-3 self-end rounded-xl border border-stone-200 px-4 text-sm font-semibold dark:border-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={showArchivedExercises}
+                    onChange={(event) => setShowArchivedExercises(event.target.checked)}
+                  />
+                  Archived
+                </label>
+              </div>
+
+              {filteredLibraryExercises.length === 0 ? (
+                <p className="mt-4 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                  No exercises match that filter.
+                </p>
+              ) : null}
+
+              <div className="mt-4 grid gap-3">
+                {filteredLibraryExercises.map((exercise) => {
+                  const isEditing = editingExerciseId === exercise.id
+
+                  return (
+                    <div
+                      key={exercise.id}
+                      className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="break-words font-semibold">{exercise.name}</p>
+                            {exercise.is_archived ? (
+                              <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                                Archived
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                            {exercise.primary_muscle || exercise.muscle_group || 'No muscle'}{exercise.equipment ? ` - ${exercise.equipment}` : ''}
+                          </p>
+                          {exercise.movement_pattern || exercise.alternate_group ? (
+                            <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                              {exercise.movement_pattern || 'No pattern'}{exercise.alternate_group ? ` - ${exercise.alternate_group}` : ''}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEditingExercise(exercise)}
+                            className="grid size-10 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-neutral-900"
+                            aria-label={`Edit ${exercise.name}`}
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+
+                          {exercise.is_archived ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreExercise(exercise.id)}
+                              disabled={restoreExercise.isPending}
+                              className="grid size-10 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-400 dark:hover:bg-neutral-900"
+                              aria-label={`Restore ${exercise.name}`}
+                            >
+                              <RotateCcw className="size-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleArchiveExercise(exercise.id)}
+                              disabled={archiveExercise.isPending}
+                              className="grid size-10 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-400 dark:hover:bg-neutral-900"
+                              aria-label={`Archive ${exercise.name}`}
+                            >
+                              <Archive className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEditing ? (
+                        <form onSubmit={handleUpdateExercise} className="mt-4 grid gap-4 rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+                          <label className="grid gap-2">
+                            <span className="text-sm font-semibold">Name</span>
+                            <input
+                              value={editingExerciseName}
+                              onChange={(event) => setEditingExerciseName(event.target.value)}
+                              className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                          </label>
+
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold">Muscle group</span>
+                              <input
+                                value={editingExerciseMuscleGroup}
+                                onChange={(event) => setEditingExerciseMuscleGroup(event.target.value)}
+                                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                              />
+                            </label>
+
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold">Equipment</span>
+                              <input
+                                value={editingExerciseEquipment}
+                                onChange={(event) => setEditingExerciseEquipment(event.target.value)}
+                                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold">Primary muscle</span>
+                              <input
+                                value={editingExercisePrimaryMuscle}
+                                onChange={(event) => setEditingExercisePrimaryMuscle(event.target.value)}
+                                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                              />
+                            </label>
+
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold">Movement pattern</span>
+                              <input
+                                value={editingExerciseMovementPattern}
+                                onChange={(event) => setEditingExerciseMovementPattern(event.target.value)}
+                                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                              />
+                            </label>
+
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold">Alternate group</span>
+                              <input
+                                value={editingExerciseAlternateGroup}
+                                onChange={(event) => setEditingExerciseAlternateGroup(event.target.value)}
+                                className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                              />
+                            </label>
+                          </div>
+
+                          <label className="grid gap-2">
+                            <span className="text-sm font-semibold">Notes</span>
+                            <textarea
+                              value={editingExerciseNotes}
+                              onChange={(event) => setEditingExerciseNotes(event.target.value)}
+                              rows={3}
+                              className="w-full min-w-0 rounded-xl border border-stone-200 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                            />
+                          </label>
+
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <button
+                              type="submit"
+                              disabled={updateExercise.isPending}
+                              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Save className="size-4" />
+                              Save exercise
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={cancelEditingExercise}
+                              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-white dark:border-neutral-800 dark:hover:bg-neutral-950"
+                            >
+                              <X className="size-4" />
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </article>
 
             <form
               onSubmit={handleAddPlannedExercise}
@@ -1249,7 +1612,7 @@ export function WorkoutsPage() {
                     className="min-h-12 rounded-xl border border-stone-200 bg-white px-4 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
                   >
                     <option value="">Choose exercise</option>
-                    {exercises.map((exercise) => (
+                    {activeExercises.map((exercise) => (
                       <option key={exercise.id} value={exercise.id}>
                         {exercise.name}
                       </option>

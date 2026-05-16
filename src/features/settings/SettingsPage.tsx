@@ -1,14 +1,21 @@
-import { LogOut, Save } from 'lucide-react'
+import { Bell, LogOut, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { WeightUnit } from '../../lib/supabase/types'
+import type { ReminderType, WeightUnit } from '../../lib/supabase/types'
 import { signOut } from '../auth/lib/auth-client'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useGoalTargets, useUpsertGoalTarget } from '../goals/hooks/useGoals'
 import { findGoalTarget } from '../goals/lib/goals'
 import { useProfile, useUpdateProfile } from '../profile/hooks/useProfile'
 import { applyTheme } from '../../lib/utils/theme'
+import { useReminderPreferences, useUpsertReminderPreference } from './hooks/useReminders'
+import {
+  canUseBrowserNotifications,
+  getReminderOption,
+  reminderTypeOptions,
+  requestBrowserNotificationPermission
+} from './lib/reminders'
 
 type AppearanceSwitchProps = {
   value: 'light' | 'dark'
@@ -53,6 +60,8 @@ export function SettingsPage() {
   const updateProfile = useUpdateProfile()
   const goalsQuery = useGoalTargets()
   const upsertGoalTarget = useUpsertGoalTarget()
+  const remindersQuery = useReminderPreferences()
+  const upsertReminderPreference = useUpsertReminderPreference()
 
   const [fullName, setFullName] = useState('')
   const [preferredWeightUnit, setPreferredWeightUnit] = useState<WeightUnit>('lb')
@@ -67,6 +76,19 @@ export function SettingsPage() {
   const [sleepGoal, setSleepGoal] = useState('8')
   const [stepsGoal, setStepsGoal] = useState('8000')
   const [restingHeartRateGoal, setRestingHeartRateGoal] = useState('')
+  const [reminderDrafts, setReminderDrafts] = useState<Record<ReminderType, { isEnabled: boolean; reminderTime: string }>>(
+    () =>
+      Object.fromEntries(
+        reminderTypeOptions.map((option) => [
+          option.type,
+          {
+            isEnabled: false,
+            reminderTime: option.defaultTime,
+          },
+        ])
+      ) as Record<ReminderType, { isEnabled: boolean; reminderTime: string }>
+  )
+  const [notificationPermissionMessage, setNotificationPermissionMessage] = useState<string | null>(null)
 
   const profile = profileQuery.data
   const goalTargets = goalsQuery.data ?? []
@@ -107,6 +129,25 @@ export function SettingsPage() {
     setStepsGoal(steps ? String(steps.target_value) : '8000')
     setRestingHeartRateGoal(restingHeartRate ? String(restingHeartRate.target_value) : '')
   }, [goalsQuery.data, goalTargets])
+
+  useEffect(() => {
+    if (!remindersQuery.data) {
+      return
+    }
+
+    setReminderDrafts((currentDrafts) => {
+      const nextDrafts = { ...currentDrafts }
+
+      for (const reminder of remindersQuery.data) {
+        nextDrafts[reminder.reminder_type] = {
+          isEnabled: reminder.is_enabled,
+          reminderTime: reminder.reminder_time?.slice(0, 5) ?? getReminderOption(reminder.reminder_type).defaultTime,
+        }
+      }
+
+      return nextDrafts
+    })
+  }, [remindersQuery.data])
 
   function parseGoalValue(value: string) {
     const parsed = Number(value)
@@ -201,6 +242,41 @@ export function SettingsPage() {
       setStatusMessage('Settings saved.')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not save settings.')
+    }
+  }
+
+  async function handleSaveReminder(reminderType: ReminderType) {
+    setStatusMessage(null)
+    setErrorMessage(null)
+
+    const draft = reminderDrafts[reminderType]
+
+    try {
+      await upsertReminderPreference.mutateAsync({
+        reminderType,
+        isEnabled: draft.isEnabled,
+        reminderTime: draft.reminderTime,
+      })
+
+      setStatusMessage('Reminder saved.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not save reminder.')
+    }
+  }
+
+  async function handleRequestNotificationPermission() {
+    setNotificationPermissionMessage(null)
+    setErrorMessage(null)
+
+    try {
+      const permission = await requestBrowserNotificationPermission()
+      setNotificationPermissionMessage(
+        permission === 'unsupported'
+          ? 'Browser notifications are not supported here.'
+          : `Browser notification permission: ${permission}.`
+      )
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not request notification permission.')
     }
   }
 
@@ -438,6 +514,95 @@ export function SettingsPage() {
             </button>
           </div>
         </form>
+
+        <article className="rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="flex items-center gap-3">
+            <Bell className="size-5 text-emerald-600" />
+            <h2 className="text-xl font-bold">Reminders</h2>
+          </div>
+
+          <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+            Save reminder preferences here. Browser or native push delivery still needs permission and platform setup.
+          </p>
+
+          <div className="mt-4 grid gap-3">
+            {reminderTypeOptions.map((option) => {
+              const draft = reminderDrafts[option.type]
+
+              return (
+                <div
+                  key={option.type}
+                  className="rounded-xl border border-stone-200 p-4 dark:border-neutral-800"
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_130px]">
+                    <label className="flex min-h-12 items-center gap-3 rounded-xl bg-stone-50 px-3 dark:bg-neutral-900">
+                      <input
+                        type="checkbox"
+                        checked={draft.isEnabled}
+                        onChange={(event) =>
+                          setReminderDrafts((drafts) => ({
+                            ...drafts,
+                            [option.type]: {
+                              ...drafts[option.type],
+                              isEnabled: event.target.checked,
+                            },
+                          }))
+                        }
+                      />
+                      <span className="font-semibold">{option.label}</span>
+                    </label>
+
+                    <label className="grid gap-2">
+                      <span className="text-sm font-semibold">Time</span>
+                      <input
+                        type="time"
+                        value={draft.reminderTime}
+                        onChange={(event) =>
+                          setReminderDrafts((drafts) => ({
+                            ...drafts,
+                            [option.type]: {
+                              ...drafts[option.type],
+                              reminderTime: event.target.value,
+                            },
+                          }))
+                        }
+                        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-200 bg-white px-3 text-base outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveReminder(option.type)}
+                    disabled={upsertReminderPreference.isPending}
+                    className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                  >
+                    Save {option.label}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRequestNotificationPermission}
+            disabled={!canUseBrowserNotifications()}
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-stone-950 dark:hover:bg-stone-200"
+          >
+            Check browser notification permission
+          </button>
+
+          {notificationPermissionMessage ? (
+            <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-600 ring-1 ring-stone-200 dark:bg-neutral-900 dark:text-stone-300 dark:ring-neutral-800">
+              {notificationPermissionMessage}
+            </p>
+          ) : null}
+
+          <p className="mt-3 text-xs leading-5 text-stone-500 dark:text-stone-400">
+            TODO: Scheduled push reminders need PWA notification scheduling or a native wrapper. Rest timer notifications need the same platform work.
+          </p>
+        </article>
 
       </div>
     </section>

@@ -14,6 +14,7 @@ function makeSet(plannedExerciseId: string, setNumber: number): WorkoutSet {
         workout_session_id: crypto.randomUUID(),
         planned_exercise_id: plannedExerciseId,
         exercise_id: crypto.randomUUID(),
+        import_batch_id: null,
         set_number: setNumber,
         set_type: 'working',
         load_type: 'weighted',
