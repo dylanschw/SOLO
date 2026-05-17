@@ -26,6 +26,7 @@ import {
     useHealthMetricEntries,
     useUpsertHealthMetricEntry,
 } from './hooks/useHealthMetrics'
+import { SupplementsMedicationsSection } from './components/SupplementsMedicationsSection'
 
 function todayDate() {
     return new Date().toISOString().slice(0, 10)
@@ -254,6 +255,8 @@ export function HealthPage() {
                     <ActivityHeatmap weeks={sleepHeatmap} label="Sleep logging heatmap" />
                 </div>
             </article>
+
+            <SupplementsMedicationsSection />
 
             <form
                 onSubmit={handleSaveMetric}

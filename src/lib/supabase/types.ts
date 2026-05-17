@@ -38,6 +38,10 @@ export type HealthMetricType =
 
 export type HealthMetricSource = 'manual' | 'apple_health' | 'apple_watch' | 'imported'
 
+export type SupplementMedicationItemType = 'supplement' | 'medication'
+
+export type SupplementMedicationLogStatus = 'taken' | 'skipped' | 'missed' | 'pending'
+
 export type ReminderType =
   | 'workout'
   | 'meal_breakfast'
@@ -48,6 +52,8 @@ export type ReminderType =
   | 'scheduling'
   | 'water'
   | 'creatine'
+  | 'supplement'
+  | 'medication'
 
 export type Database = {
   public: {
@@ -1111,6 +1117,128 @@ export type Database = {
           sleep_start_time?: string | null
           sleep_end_time?: string | null
           sleep_quality?: number | null
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      supplement_medication_items: {
+        Row: {
+          id: string
+          user_id: string
+          item_type: SupplementMedicationItemType
+          name: string
+          dose_amount: number | null
+          dose_unit: string | null
+          frequency: string
+          preferred_time: string | null
+          notes: string | null
+          is_active: boolean
+          is_archived: boolean
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          item_type: SupplementMedicationItemType
+          name: string
+          dose_amount?: number | null
+          dose_unit?: string | null
+          frequency?: string
+          preferred_time?: string | null
+          notes?: string | null
+          is_active?: boolean
+          is_archived?: boolean
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          item_type?: SupplementMedicationItemType
+          name?: string
+          dose_amount?: number | null
+          dose_unit?: string | null
+          frequency?: string
+          preferred_time?: string | null
+          notes?: string | null
+          is_active?: boolean
+          is_archived?: boolean
+          client_id?: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      supplement_medication_logs: {
+        Row: {
+          id: string
+          user_id: string
+          item_id: string
+          log_date: string
+          status: SupplementMedicationLogStatus
+          taken_at: string | null
+          skipped_at: string | null
+          missed_at: string | null
+          notes: string | null
+          source: HealthMetricSource
+          external_source_id: string | null
+          client_id: string
+          sync_status: SyncStatus
+          version: number
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          item_id: string
+          log_date: string
+          status?: SupplementMedicationLogStatus
+          taken_at?: string | null
+          skipped_at?: string | null
+          missed_at?: string | null
+          notes?: string | null
+          source?: HealthMetricSource
+          external_source_id?: string | null
+          client_id: string
+          sync_status?: SyncStatus
+          version?: number
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          item_id?: string
+          log_date?: string
+          status?: SupplementMedicationLogStatus
+          taken_at?: string | null
+          skipped_at?: string | null
+          missed_at?: string | null
+          notes?: string | null
+          source?: HealthMetricSource
+          external_source_id?: string | null
           client_id?: string
           sync_status?: SyncStatus
           version?: number

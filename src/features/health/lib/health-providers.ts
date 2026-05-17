@@ -19,6 +19,11 @@ export type HealthMetricProvider = {
     }) => Promise<HealthMetricProviderEntry[]>
 }
 
+// TODO: Future Apple Health medication sync should use a separate native provider
+// that can read/write HealthKit medication events into supplement_medication_logs.
+// Browser PWAs cannot access those HealthKit APIs or safely perform background
+// medication reminder delivery.
+
 export const manualHealthMetricProvider: HealthMetricProvider = {
     source: 'manual',
     async isAvailable() {

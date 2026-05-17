@@ -10,6 +10,7 @@ This is a drafting checklist, not legal advice. Review it before App Store, Goog
 - Bodyweight entries.
 - Scheduling tasks, routine items, water logs, and creatine completion.
 - Manual health metrics such as sleep, steps, resting heart rate, calories burned, water, and creatine.
+- User-created supplement and medication items, schedules, daily statuses, and notes.
 
 ## Required Policy Topics
 
@@ -21,6 +22,7 @@ This is a drafting checklist, not legal advice. Review it before App Store, Goog
 - Data retention for soft-deleted records and backups.
 - Security practices and limits.
 - Contact email for privacy requests.
+- A no-medical-advice explanation for supplement and medication tracking.
 
 ## Future Health Data Requirements
 
@@ -31,6 +33,7 @@ Actual Apple Health, Apple Watch, Google Fit, or Health Connect sync needs expli
 - Request only necessary permissions.
 - Describe permission denial and revocation behavior.
 - Complete App Store privacy labels and Google Play Data Safety answers for health and fitness data.
+- If medication sync is added, disclose medication data separately and explain whether SOLO reads, writes, or only displays medication events.
 
 ## Future Monetization Requirements
 
