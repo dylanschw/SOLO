@@ -26,6 +26,8 @@ export const reminderTypeOptions: Array<{
         { type: 'scheduling', label: 'Scheduling', defaultTime: '09:00' },
         { type: 'water', label: 'Water', defaultTime: '10:00' },
         { type: 'creatine', label: 'Creatine', defaultTime: '10:30' },
+        { type: 'supplement', label: 'Supplement', defaultTime: '09:00' },
+        { type: 'medication', label: 'Medication', defaultTime: '09:00' },
     ]
 
 function createClientId(userId: string, reminderType: ReminderType) {

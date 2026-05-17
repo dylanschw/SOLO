@@ -7,7 +7,9 @@ The repo now has a health metric data model and provider interface so future nat
 ## What Exists Now
 
 - `health_metric_entries` table for manual or imported health metrics.
+- `supplement_medication_items` and `supplement_medication_logs` tables for user-created supplement and medication tracking.
 - Health metric sources: `manual`, `apple_health`, `apple_watch`, and `imported`.
+- Supplement and medication log sources: `manual`, `apple_health`, `apple_watch`, and `imported`.
 - Manual health entry UI in the Health page.
 - Provider interface in `src/features/health/lib/health-providers.ts`.
 - Apple Health placeholder adapter with TODO comments.
@@ -23,6 +25,9 @@ The repo now has a health metric data model and provider interface so future nat
 - Privacy policy updates for health and fitness data.
 - App Store privacy disclosures for HealthKit data use.
 - A sync job that maps HealthKit samples into `health_metric_entries`.
+- A separate medication sync flow that maps HealthKit medication events into `supplement_medication_logs`.
+- Conflict handling so a SOLO manual log and a HealthKit medication event for the same item/day do not create confusing duplicates.
+- Explicit user controls to enable, disable, and delete medication sync data.
 
 ## Apple Watch Notes
 
@@ -40,3 +45,9 @@ Future HealthKit imports should map into:
 - Creatine remains manual unless another data source is intentionally added.
 
 Imported records should set `source` to `apple_health` or `apple_watch`, preserve an external sample identifier when possible, and avoid duplicating samples across sync runs.
+
+## Medication Sync Notes
+
+SOLO does not sync medications with Apple Health in the current PWA. Future bidirectional medication sync requires native iOS HealthKit medication APIs, HealthKit permissions, real device testing, privacy disclosures, and clear conflict handling.
+
+Medication and supplement data is sensitive. SOLO should never infer doses, recommend changes, or tell users to start, stop, or change a medication. The tracker is for user-created records only.

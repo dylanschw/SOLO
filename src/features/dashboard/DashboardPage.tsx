@@ -20,7 +20,12 @@ import { useBodyweightEntries } from '../bodyweight/hooks/useBodyweightEntries';
 import { buildCoachWeeklySummary } from '../coach/lib/coach-insights';
 import { useGoalTargets } from '../goals/hooks/useGoals';
 import { useHealthMetricEntries } from '../health/hooks/useHealthMetrics';
+import { useSupplementMedicationItems, useSupplementMedicationLogs } from '../health/hooks/useSupplementsMedications';
 import { getLatestHealthMetric } from '../health/lib/health-metrics';
+import {
+  calculateTodaySupplementMedicationCompletion,
+  countTakenSupplementMedicationLogsByDate
+} from '../health/lib/supplements-medications';
 import { useNutritionLogs, useActiveNutritionTarget } from '../nutrition/hooks/useNutrition';
 import { useProfile } from '../profile/hooks/useProfile';
 import { useDailyTasks, useDailyWellnessEntries } from '../scheduling/hooks/useScheduling';
@@ -84,7 +89,9 @@ type DashboardHeatmapSourceId =
   | 'nutrition'
   | 'water'
   | 'creatine'
-  | 'sleep';
+  | 'sleep'
+  | 'supplements'
+  | 'medications';
 
 const heatmapRanges: Array<{ id: ActivityHeatmapRange; label: string }> = [
   { id: '30d', label: '30 days' },
@@ -117,6 +124,8 @@ export function DashboardPage() {
   const bodyweightEntriesQuery = useBodyweightEntries();
   const goalTargetsQuery = useGoalTargets();
   const healthMetricEntriesQuery = useHealthMetricEntries();
+  const supplementMedicationItemsQuery = useSupplementMedicationItems();
+  const supplementMedicationLogsQuery = useSupplementMedicationLogs();
   const dailyTasksQuery = useDailyTasks();
   const dailyWellnessEntriesQuery = useDailyWellnessEntries();
 
@@ -135,10 +144,24 @@ export function DashboardPage() {
   const bodyweightEntries = bodyweightEntriesQuery.data ?? [];
   const goalTargets = goalTargetsQuery.data ?? [];
   const healthMetricEntries = healthMetricEntriesQuery.data ?? [];
+  const supplementMedicationItems = supplementMedicationItemsQuery.data ?? [];
+  const supplementMedicationLogs = supplementMedicationLogsQuery.data ?? [];
   const dailyTasks = dailyTasksQuery.data ?? [];
   const dailyWellnessEntries = dailyWellnessEntriesQuery.data ?? [];
   const latestSleep = getLatestHealthMetric(healthMetricEntries, 'sleep_hours');
   const latestSteps = getLatestHealthMetric(healthMetricEntries, 'steps');
+  const todaySupplementCompletion = calculateTodaySupplementMedicationCompletion({
+    items: supplementMedicationItems,
+    logs: supplementMedicationLogs,
+    today,
+    itemType: 'supplement'
+  });
+  const todayMedicationCompletion = calculateTodaySupplementMedicationCompletion({
+    items: supplementMedicationItems,
+    logs: supplementMedicationLogs,
+    today,
+    itemType: 'medication'
+  });
 
   const todayNutritionLog = findLogForDate(nutritionLogs, today);
 
@@ -176,6 +199,16 @@ export function DashboardPage() {
     healthMetricEntries.filter((entry) => entry.metric_type === 'sleep_hours'),
     (entry) => entry.metric_date
   );
+  const supplementCounts = countTakenSupplementMedicationLogsByDate({
+    items: supplementMedicationItems,
+    logs: supplementMedicationLogs,
+    itemType: 'supplement'
+  });
+  const medicationCounts = countTakenSupplementMedicationLogsByDate({
+    items: supplementMedicationItems,
+    logs: supplementMedicationLogs,
+    itemType: 'medication'
+  });
   const overallCounts = combineActivityCounts([
     workoutCounts,
     schedulingCounts,
@@ -183,7 +216,9 @@ export function DashboardPage() {
     nutritionCounts,
     waterCounts,
     creatineCounts,
-    sleepCounts
+    sleepCounts,
+    supplementCounts,
+    medicationCounts
   ]);
   const heatmapSourceOptions: Array<{
     id: DashboardHeatmapSourceId;
@@ -197,7 +232,9 @@ export function DashboardPage() {
       { id: 'nutrition', label: 'Food', counts: nutritionCounts },
       { id: 'water', label: 'Water', counts: waterCounts },
       { id: 'creatine', label: 'Creatine', counts: creatineCounts },
-      { id: 'sleep', label: 'Sleep', counts: sleepCounts }
+      { id: 'sleep', label: 'Sleep', counts: sleepCounts },
+      { id: 'supplements', label: 'Supps', counts: supplementCounts },
+      { id: 'medications', label: 'Meds', counts: medicationCounts }
     ];
   const selectedHeatmapSource = heatmapSourceOptions.find((source) => source.id === heatmapSourceId) ?? heatmapSourceOptions[0];
   const heatmapRangeConfig = getActivityHeatmapRangeConfig(heatmapRange, today);
@@ -451,6 +488,20 @@ export function DashboardPage() {
             <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Latest steps</p>
             <p className="mt-2 text-2xl font-bold">
               {formatHealthValue(latestSteps ? Number(latestSteps.value) : null, latestSteps?.unit ?? 'steps')}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+            <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Supplements today</p>
+            <p className="mt-2 text-2xl font-bold">
+              {todaySupplementCompletion.taken}/{todaySupplementCompletion.total}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-stone-50 p-4 dark:bg-neutral-900">
+            <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">Medications today</p>
+            <p className="mt-2 text-2xl font-bold">
+              {todayMedicationCompletion.taken}/{todayMedicationCompletion.total}
             </p>
           </div>
         </div>
