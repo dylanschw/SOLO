@@ -1,6 +1,7 @@
 import {
     CalendarCheck,
     CheckCircle,
+    ClipboardList,
     Droplets,
     Pencil,
     Pill,
@@ -28,8 +29,14 @@ import {
     useUpdateRoutineItem,
     useUpsertDailyWellnessEntry
 } from './hooks/useScheduling'
+import {
+    buildCanvasTaskNotes,
+    detectCanvasTaskDuplicates,
+    parseCanvasAssignmentText,
+    type ParsedCanvasTask
+} from './lib/canvas-import'
 
-type SchedulingSection = 'today' | 'routine' | 'history'
+type SchedulingSection = 'today' | 'routine' | 'import' | 'history'
 
 const schedulingSections: Array<{
     id: SchedulingSection
@@ -37,6 +44,7 @@ const schedulingSections: Array<{
 }> = [
         { id: 'today', label: 'Today' },
         { id: 'routine', label: 'Routine' },
+        { id: 'import', label: 'Import' },
         { id: 'history', label: 'History' }
     ]
 
@@ -60,6 +68,10 @@ export function SchedulingPage() {
     const [waterGoalMl, setWaterGoalMl] = useState('3000')
     const [waterLoggedMl, setWaterLoggedMl] = useState('0')
     const [creatineCompleted, setCreatineCompleted] = useState(false)
+    const [canvasImportText, setCanvasImportText] = useState('')
+    const [canvasPreviewTasks, setCanvasPreviewTasks] = useState<ParsedCanvasTask[]>([])
+    const [canvasImportWarnings, setCanvasImportWarnings] = useState<string[]>([])
+    const [selectedCanvasTaskIds, setSelectedCanvasTaskIds] = useState<Set<string>>(() => new Set())
 
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
     const [editingTaskTitle, setEditingTaskTitle] = useState('')
@@ -133,6 +145,14 @@ export function SchedulingPage() {
             return groups
         }, {})
     }, [allTasks])
+
+    const canvasDuplicateMap = useMemo(() => {
+        return detectCanvasTaskDuplicates(canvasPreviewTasks, allTasks)
+    }, [allTasks, canvasPreviewTasks])
+
+    const selectedCanvasTasks = useMemo(() => {
+        return canvasPreviewTasks.filter((task) => selectedCanvasTaskIds.has(task.id))
+    }, [canvasPreviewTasks, selectedCanvasTaskIds])
 
     async function handleCreateTask(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -416,12 +436,91 @@ export function SchedulingPage() {
         }
     }
 
+    function handlePreviewCanvasImport() {
+        setErrorMessage(null)
+        setStatusMessage(null)
+
+        const result = parseCanvasAssignmentText(canvasImportText)
+        const duplicates = detectCanvasTaskDuplicates(result.tasks, allTasks)
+
+        setCanvasPreviewTasks(result.tasks)
+        setCanvasImportWarnings(result.warnings)
+        setSelectedCanvasTaskIds(new Set(result.tasks.filter((task) => !duplicates.has(task.id)).map((task) => task.id)))
+
+        if (result.tasks.length === 0) {
+            setErrorMessage(result.warnings[0] ?? 'No Canvas tasks were found.')
+            return
+        }
+
+        setStatusMessage(
+            duplicates.size > 0
+                ? `Found ${result.tasks.length} Canvas tasks. ${duplicates.size} possible duplicate${duplicates.size === 1 ? '' : 's'} were left unchecked.`
+                : `Found ${result.tasks.length} Canvas tasks.`
+        )
+    }
+
+    function handleToggleCanvasTask(taskId: string) {
+        setSelectedCanvasTaskIds((currentIds) => {
+            const nextIds = new Set(currentIds)
+
+            if (nextIds.has(taskId)) {
+                nextIds.delete(taskId)
+            } else {
+                nextIds.add(taskId)
+            }
+
+            return nextIds
+        })
+    }
+
+    async function handleImportCanvasTasks() {
+        setErrorMessage(null)
+        setStatusMessage(null)
+
+        if (selectedCanvasTasks.length === 0) {
+            setErrorMessage('Choose at least one Canvas task to import.')
+            return
+        }
+
+        const sortOrderByDate = new Map<string, number>()
+
+        allTasks.forEach((task) => {
+            const current = sortOrderByDate.get(task.task_date) ?? 0
+            sortOrderByDate.set(task.task_date, Math.max(current, task.sort_order ?? 0))
+        })
+
+        try {
+            for (const task of selectedCanvasTasks) {
+                const nextSortOrder = (sortOrderByDate.get(task.dueDate) ?? 0) + 1
+                sortOrderByDate.set(task.dueDate, nextSortOrder)
+
+                await createTask.mutateAsync({
+                    taskDate: task.dueDate,
+                    title: task.title,
+                    category: task.courseName ?? 'Canvas',
+                    notes: buildCanvasTaskNotes(task),
+                    sortOrder: nextSortOrder
+                })
+            }
+
+            setCanvasImportText('')
+            setCanvasPreviewTasks([])
+            setCanvasImportWarnings([])
+            setSelectedCanvasTaskIds(new Set())
+            setStatusMessage(
+                `Imported ${selectedCanvasTasks.length} Canvas task${selectedCanvasTasks.length === 1 ? '' : 's'} into Scheduling.`
+            )
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Could not import Canvas tasks.')
+        }
+    }
+
     return (
         <section>
             <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Personal dashboard</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">Scheduling</h1>
 
-            <div className="mt-5 grid grid-cols-3 gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-1 dark:border-neutral-800 dark:bg-neutral-900 sm:grid-cols-4">
                 {schedulingSections.map((section) => (
                     <button
                         key={section.id}
@@ -765,6 +864,147 @@ export function SchedulingPage() {
                         </div>
                     </article>
                 </>
+            ) : null}
+
+            {activeSection === 'import' ? (
+                <article className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+                    <div className="flex items-center gap-3">
+                        <ClipboardList className="size-5 text-emerald-600" />
+                        <h2 className="text-xl font-bold">Canvas task import</h2>
+                    </div>
+
+                    <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                        Paste assignment text copied from Canvas. SOLO parses the text locally and never asks for
+                        Canvas credentials.
+                    </p>
+
+                    <div className="mt-5 grid gap-3">
+                        <textarea
+                            value={canvasImportText}
+                            onChange={(event) => setCanvasImportText(event.target.value)}
+                            rows={10}
+                            placeholder={`Course: Biology 101
+Lab report draft
+Due May 20 at 11:59pm
+https://canvas.example.edu/...`}
+                            className="min-h-48 w-full min-w-0 resize-y rounded-xl border border-stone-200 bg-white px-4 py-3 text-base leading-6 outline-none transition focus:border-stone-500 dark:border-neutral-700 dark:bg-neutral-950"
+                        />
+
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                onClick={handlePreviewCanvasImport}
+                                className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                            >
+                                <ClipboardList className="size-4" />
+                                Preview tasks
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setCanvasImportText('')
+                                    setCanvasPreviewTasks([])
+                                    setCanvasImportWarnings([])
+                                    setSelectedCanvasTaskIds(new Set())
+                                }}
+                                className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                            >
+                                <X className="size-4" />
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    {canvasImportWarnings.length > 0 ? (
+                        <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900">
+                            {canvasImportWarnings.map((warning) => (
+                                <p key={warning}>{warning}</p>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {canvasPreviewTasks.length > 0 ? (
+                        <div className="mt-5">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <h3 className="font-bold">Preview</h3>
+                                    <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                                        {selectedCanvasTasks.length} selected of {canvasPreviewTasks.length} detected
+                                        {canvasDuplicateMap.size > 0
+                                            ? `, ${canvasDuplicateMap.size} possible duplicate${canvasDuplicateMap.size === 1 ? '' : 's'}`
+                                            : ''}
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleImportCanvasTasks}
+                                    disabled={createTask.isPending || selectedCanvasTasks.length === 0}
+                                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-950 px-4 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:opacity-60 dark:bg-stone-50 dark:text-stone-950 dark:hover:bg-stone-200"
+                                >
+                                    <Plus className="size-4" />
+                                    Import selected
+                                </button>
+                            </div>
+
+                            <div className="mt-4 grid gap-3">
+                                {canvasPreviewTasks.map((task) => {
+                                    const duplicate = canvasDuplicateMap.get(task.id)
+                                    const isSelected = selectedCanvasTaskIds.has(task.id)
+
+                                    return (
+                                        <label
+                                            key={task.id}
+                                            className={`grid gap-3 rounded-xl border p-4 ${duplicate
+                                                    ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
+                                                    : 'border-stone-200 dark:border-neutral-800'
+                                                }`}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => handleToggleCanvasTask(task.id)}
+                                                    className="mt-1 size-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-600"
+                                                />
+
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="break-words font-bold">{task.title}</p>
+                                                        <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold capitalize text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                                                            {task.taskType}
+                                                        </span>
+                                                    </div>
+
+                                                    <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                                                        {task.dueDate}
+                                                        {task.dueTime ? ` at ${task.dueTime}` : ''} -{' '}
+                                                        {task.courseName ?? 'Canvas'}
+                                                    </p>
+
+                                                    {task.link ? (
+                                                        <p className="mt-2 break-all text-sm text-emerald-700 dark:text-emerald-300">
+                                                            {task.link}
+                                                        </p>
+                                                    ) : null}
+
+                                                    {duplicate ? (
+                                                        <div className="mt-2 grid gap-1 text-sm text-amber-800 dark:text-amber-200">
+                                                            {duplicate.reasons.map((reason) => (
+                                                                <p key={reason}>{reason}</p>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
+                </article>
             ) : null}
 
             {activeSection === 'routine' ? (
