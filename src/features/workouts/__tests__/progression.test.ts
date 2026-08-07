@@ -85,6 +85,77 @@ describe('progression recommendations', () => {
         expect(recommendation.nextWeight).toBe(95)
     })
 
+    it('uses the corrected weight when a later lighter set reaches the rep range', () => {
+        const recommendation = recommendDynamicDoubleProgression({
+            sets: [
+                {
+                    weightKg: 100,
+                    reps: 6,
+                    rpe: 10,
+                    setType: 'working',
+                    completed: true
+                },
+                {
+                    weightKg: 90,
+                    reps: 8,
+                    rpe: 8,
+                    setType: 'working',
+                    completed: true
+                },
+                {
+                    weightKg: 90,
+                    reps: 9,
+                    rpe: 8,
+                    setType: 'working',
+                    completed: true
+                }
+            ],
+            plannedSets: 3,
+            minReps: 8,
+            maxReps: 12,
+            targetRpe: 8,
+            unit: 'kg'
+        })
+
+        expect(recommendation.kind).toBe('repeat_weight')
+        expect(recommendation.title).toMatch(/corrected weight/i)
+        expect(recommendation.nextWeight).toBe(90)
+    })
+
+    it('uses the corrected assistance when a later easier assisted set reaches the rep range', () => {
+        const recommendation = recommendDynamicDoubleProgression({
+            sets: [
+                {
+                    weightKg: null,
+                    assistWeightKg: 20,
+                    loadType: 'assisted',
+                    reps: 5,
+                    rpe: 10,
+                    setType: 'working',
+                    completed: true
+                },
+                {
+                    weightKg: null,
+                    assistWeightKg: 30,
+                    loadType: 'assisted',
+                    reps: 8,
+                    rpe: 8,
+                    setType: 'working',
+                    completed: true
+                }
+            ],
+            plannedSets: 2,
+            minReps: 8,
+            maxReps: 10,
+            targetRpe: 8,
+            unit: 'kg'
+        })
+
+        expect(recommendation.kind).toBe('repeat_weight')
+        expect(recommendation.title).toMatch(/corrected assistance/i)
+        expect(recommendation.nextWeight).toBe(30)
+    })
+
     it('recommends reducing assistance after assisted sets hit the top of the range', () => {
         const recommendation = recommendDynamicDoubleProgression({
             sets: [
