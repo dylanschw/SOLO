@@ -11,6 +11,26 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --solo-bg: #f4f4f5;
+  --solo-surface: #ffffff;
+  --solo-surface-muted: #f5f5f5;
+  --solo-border: #e5e5e5;
+  --solo-text: #0a0a0a;
+  --solo-muted: #737373;
+  --solo-strong: #111111;
+  --solo-inverse: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --solo-bg: #000000;
+  --solo-surface: #0a0a0a;
+  --solo-surface-muted: #171717;
+  --solo-border: #262626;
+  --solo-text: #fafafa;
+  --solo-muted: #a3a3a3;
+  --solo-strong: #ffffff;
+  --solo-inverse: #0a0a0a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,18 +39,19 @@
   }
 
   html {
-    background: #0a0a0a;
+    background: #000000;
   }
 }
 
 html {
-  background: #fafaf9;
+  background: var(--solo-bg);
 }
 
 body {
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
+  background: var(--solo-bg);
 }
 
 button,
@@ -60,4 +81,185 @@ input,
 select,
 textarea {
   min-width: 0;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+button,
+a {
+  transition-property: background-color, border-color, color, opacity, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+button:active,
+a:active {
+  transform: translateY(1px);
+}
+
+input,
+select,
+textarea {
+  border-color: var(--solo-border);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--solo-strong);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--solo-strong);
+  color: var(--solo-inverse);
+}
+
+/*
+  SOLO visual system: neutral, minimal, and gym-friendly.
+  Existing feature files still use semantic Tailwind colors for status states.
+  These overrides make the visible app grayscale without forcing a risky rewrite
+  of every feature component in one pass.
+*/
+[class*="bg-emerald-"],
+[class*="bg-green-"],
+[class*="bg-teal-"],
+[class*="bg-cyan-"],
+[class*="bg-sky-"],
+[class*="bg-blue-"],
+[class*="bg-indigo-"],
+[class*="bg-violet-"],
+[class*="bg-purple-"],
+[class*="bg-fuchsia-"],
+[class*="bg-pink-"],
+[class*="bg-rose-"],
+[class*="bg-red-"],
+[class*="bg-orange-"],
+[class*="bg-amber-"],
+[class*="bg-yellow-"],
+[class*="bg-lime-"] {
+  background-color: var(--solo-surface-muted) !important;
+}
+
+[class*="bg-emerald-600"],
+[class*="bg-emerald-700"],
+[class*="bg-green-600"],
+[class*="bg-green-700"],
+[class*="bg-blue-600"],
+[class*="bg-blue-700"],
+[class*="bg-red-600"],
+[class*="bg-red-700"],
+[class*="bg-stone-900"],
+[class*="bg-neutral-950"] {
+  background-color: var(--solo-strong) !important;
+}
+
+.dark [class*="bg-emerald-600"],
+.dark [class*="bg-emerald-700"],
+.dark [class*="bg-green-600"],
+.dark [class*="bg-green-700"],
+.dark [class*="bg-blue-600"],
+.dark [class*="bg-blue-700"],
+.dark [class*="bg-red-600"],
+.dark [class*="bg-red-700"],
+.dark [class*="bg-stone-900"],
+.dark [class*="bg-neutral-950"] {
+  background-color: var(--solo-surface) !important;
+}
+
+[class*="text-emerald-"],
+[class*="text-green-"],
+[class*="text-teal-"],
+[class*="text-cyan-"],
+[class*="text-sky-"],
+[class*="text-blue-"],
+[class*="text-indigo-"],
+[class*="text-violet-"],
+[class*="text-purple-"],
+[class*="text-fuchsia-"],
+[class*="text-pink-"],
+[class*="text-rose-"],
+[class*="text-red-"],
+[class*="text-orange-"],
+[class*="text-amber-"],
+[class*="text-yellow-"],
+[class*="text-lime-"] {
+  color: var(--solo-text) !important;
+}
+
+.dark [class*="text-emerald-"],
+.dark [class*="text-green-"],
+.dark [class*="text-teal-"],
+.dark [class*="text-cyan-"],
+.dark [class*="text-sky-"],
+.dark [class*="text-blue-"],
+.dark [class*="text-indigo-"],
+.dark [class*="text-violet-"],
+.dark [class*="text-purple-"],
+.dark [class*="text-fuchsia-"],
+.dark [class*="text-pink-"],
+.dark [class*="text-rose-"],
+.dark [class*="text-red-"],
+.dark [class*="text-orange-"],
+.dark [class*="text-amber-"],
+.dark [class*="text-yellow-"],
+.dark [class*="text-lime-"] {
+  color: var(--solo-text) !important;
+}
+
+[class*="border-emerald-"],
+[class*="border-green-"],
+[class*="border-teal-"],
+[class*="border-cyan-"],
+[class*="border-sky-"],
+[class*="border-blue-"],
+[class*="border-indigo-"],
+[class*="border-violet-"],
+[class*="border-purple-"],
+[class*="border-fuchsia-"],
+[class*="border-pink-"],
+[class*="border-rose-"],
+[class*="border-red-"],
+[class*="border-orange-"],
+[class*="border-amber-"],
+[class*="border-yellow-"],
+[class*="border-lime-"] {
+  border-color: var(--solo-border) !important;
+}
+
+[class*="ring-emerald-"],
+[class*="ring-green-"],
+[class*="ring-teal-"],
+[class*="ring-cyan-"],
+[class*="ring-sky-"],
+[class*="ring-blue-"],
+[class*="ring-indigo-"],
+[class*="ring-violet-"],
+[class*="ring-purple-"],
+[class*="ring-fuchsia-"],
+[class*="ring-pink-"],
+[class*="ring-rose-"],
+[class*="ring-red-"],
+[class*="ring-orange-"],
+[class*="ring-amber-"],
+[class*="ring-yellow-"],
+[class*="ring-lime-"] {
+  --tw-ring-color: var(--solo-border) !important;
+}
+
+[class*="hover:bg-emerald-"],
+[class*="hover:bg-green-"],
+[class*="hover:bg-blue-"],
+[class*="hover:bg-red-"],
+[class*="hover:bg-orange-"],
+[class*="hover:bg-amber-"] {
+  background-color: inherit;
 }
