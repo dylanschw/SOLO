@@ -13,7 +13,6 @@ import {
     groupPreviousWorkoutCsvRows,
     parsePreviousWorkoutCsv,
     previousWorkoutCsvTemplate,
-    summarizePreviousWorkoutImportPlan,
     type PreviousWorkoutCsvPreview
 } from '../lib/previous-workout-csv'
 
@@ -151,13 +150,22 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
         >
             <div className="flex items-center gap-3">
                 <ClipboardList className="size-5 text-emerald-600" />
-                <h2 className="text-xl font-bold">Past workout CSV preview</h2>
+                <h2 className="text-xl font-bold">Past workout CSV import</h2>
             </div>
 
             <p className="mt-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
-                Preview completed workout rows, remove any bad rows, then save them into workout history.
-                Imports create completed sessions, so they count toward history, charts, PRs, autofill, and recommendations.
+                Bring older workout logs into SOLO. Preview completed workout rows, remove bad rows, then save them into workout history.
+                Imported sets count toward history, charts, PRs, autofill, and recommendations.
             </p>
+
+            <div className="mt-3 rounded-xl bg-stone-50 p-3 text-sm leading-6 text-stone-600 dark:bg-neutral-900 dark:text-stone-300">
+                <p className="font-semibold text-stone-900 dark:text-stone-50">Import tips</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>Use one row per set. Keep set numbers unique inside each workout and exercise.</li>
+                    <li>Use <span className="font-mono">assisted</span> with a positive <span className="font-mono">assist_weight</span>. Do not use negative weight for assisted dips or pull-ups.</li>
+                    <li>Use <span className="font-mono">added_weight</span> for weighted dips or pull-ups, and <span className="font-mono">no_weight</span> for reps-only movements.</li>
+                </ul>
+            </div>
 
             <pre className="mt-3 overflow-x-auto rounded-xl bg-stone-950 p-3 text-xs leading-5 text-stone-100">
                 {previousWorkoutCsvTemplate}
@@ -196,7 +204,8 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
 
                 <button
                     type="submit"
-                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                    disabled={!csvText.trim()}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 text-sm font-semibold transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-900"
                 >
                     Preview previous workouts
                 </button>
@@ -254,7 +263,7 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
 
                     {importPlan && importPlan.duplicateKeys.length > 0 ? (
                         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900">
-                            {importPlan.duplicateKeys.length} duplicate set key found in this CSV. Remove duplicates before importing.
+                            {importPlan.duplicateKeys.length} duplicate set key found in this CSV. Remove repeated rows before importing.
                         </p>
                     ) : null}
 
@@ -270,6 +279,9 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
                     {duplicateHints.length > 0 ? (
                         <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900">
                             <p className="font-bold">Possible existing duplicates</p>
+                            <p className="mt-1 leading-6">
+                                These look similar to workouts already saved in SOLO. Leave them blocked unless you intentionally want duplicate history.
+                            </p>
                             <div className="mt-2 grid gap-1">
                                 {duplicateHints.map((hint) => (
                                     <p key={hint}>{hint}</p>
@@ -344,4 +356,13 @@ export function PreviousWorkoutCsvImport({ onImported }: PreviousWorkoutCsvImpor
             ) : null}
         </form>
     )
+}
+
+function summarizePreviousWorkoutImportPlan(importPlan: ReturnType<typeof buildPreviousWorkoutImportPlan>) {
+    return {
+        workoutCount: importPlan.workouts.length,
+        setCount: importPlan.workouts.reduce((sum, workout) => sum + workout.rows.length, 0),
+        duplicateCount: importPlan.duplicateKeys.length,
+        hasBlockingErrors: importPlan.blockingErrors.length > 0,
+    }
 }
