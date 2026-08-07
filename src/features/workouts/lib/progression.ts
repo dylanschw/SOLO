@@ -53,6 +53,18 @@ function getWorkingSets(sets: PerformanceSet[]) {
     return sets.filter((set) => set.completed && set.setType !== 'warmup')
 }
 
+function getComparableLoadKg(set: PerformanceSet) {
+    if (set.loadType === 'added_weight') {
+        return set.addedWeightKg ?? set.weightKg
+    }
+
+    if (set.loadType === 'assisted') {
+        return set.assistWeightKg ?? set.weightKg
+    }
+
+    return set.weightKg
+}
+
 function getHeaviestWeightKg(sets: PerformanceSet[]) {
     const weights = sets
         .map((set) => (set.loadType === 'added_weight' ? set.addedWeightKg ?? set.weightKg : set.weightKg))
@@ -79,6 +91,86 @@ function getAverageRpe(sets: PerformanceSet[]) {
 
 function convertIncrementToKg(increment: number, unit: WeightUnit) {
     return unit === 'kg' ? increment : increment * 0.45359237
+}
+
+function getCorrectedWeightedLoadKg(sets: PerformanceSet[], minReps: number) {
+    const correctedLoads: number[] = []
+
+    for (let index = 0; index < sets.length; index += 1) {
+        const failedSet = sets[index]
+        const failedLoadKg = getComparableLoadKg(failedSet)
+
+        if (
+            failedSet.loadType === 'assisted' ||
+            isUnloadedSet(failedSet) ||
+            typeof failedLoadKg !== 'number' ||
+            !Number.isFinite(failedLoadKg) ||
+            (failedSet.reps ?? 0) >= minReps
+        ) {
+            continue
+        }
+
+        const laterSuccessfulLoads = sets
+            .slice(index + 1)
+            .map((set) => ({ set, loadKg: getComparableLoadKg(set) }))
+            .filter(
+                (entry): entry is { set: PerformanceSet; loadKg: number } =>
+                    entry.set.loadType !== 'assisted' &&
+                    !isUnloadedSet(entry.set) &&
+                    typeof entry.loadKg === 'number' &&
+                    Number.isFinite(entry.loadKg) &&
+                    entry.loadKg < failedLoadKg &&
+                    (entry.set.reps ?? 0) >= minReps
+            )
+            .map((entry) => entry.loadKg)
+
+        correctedLoads.push(...laterSuccessfulLoads)
+    }
+
+    if (correctedLoads.length === 0) {
+        return null
+    }
+
+    return Math.max(...correctedLoads)
+}
+
+function getCorrectedAssistanceKg(sets: PerformanceSet[], minReps: number) {
+    const correctedAssistanceWeights: number[] = []
+
+    for (let index = 0; index < sets.length; index += 1) {
+        const failedSet = sets[index]
+        const failedAssistanceKg = getComparableLoadKg(failedSet)
+
+        if (
+            failedSet.loadType !== 'assisted' ||
+            typeof failedAssistanceKg !== 'number' ||
+            !Number.isFinite(failedAssistanceKg) ||
+            (failedSet.reps ?? 0) >= minReps
+        ) {
+            continue
+        }
+
+        const laterSuccessfulAssistance = sets
+            .slice(index + 1)
+            .map((set) => ({ set, assistanceKg: getComparableLoadKg(set) }))
+            .filter(
+                (entry): entry is { set: PerformanceSet; assistanceKg: number } =>
+                    entry.set.loadType === 'assisted' &&
+                    typeof entry.assistanceKg === 'number' &&
+                    Number.isFinite(entry.assistanceKg) &&
+                    entry.assistanceKg > failedAssistanceKg &&
+                    (entry.set.reps ?? 0) >= minReps
+            )
+            .map((entry) => entry.assistanceKg)
+
+        correctedAssistanceWeights.push(...laterSuccessfulAssistance)
+    }
+
+    if (correctedAssistanceWeights.length === 0) {
+        return null
+    }
+
+    return Math.min(...correctedAssistanceWeights)
 }
 
 export function calculateBackoffWeight(topSetWeight: number, backoffPercent: number) {
@@ -183,6 +275,19 @@ export function recommendDynamicDoubleProgression(input: {
         }
 
         if (anyBelowMinRange) {
+            const correctedAssistanceKg = getCorrectedAssistanceKg(countedSets, minReps)
+
+            if (correctedAssistanceKg !== null) {
+                return {
+                    kind: 'repeat_weight',
+                    title: 'Use the corrected assistance',
+                    nextWeight: roundToOneDecimal(convertWeight(correctedAssistanceKg, 'kg', input.unit)),
+                    nextReps: `${minReps}-${maxReps}`,
+                    explanation:
+                        'An earlier assisted set missed the rep range, but a later set hit the range after you added more assistance. Start with that corrected assistance before reducing again.'
+                }
+            }
+
             return {
                 kind: 'reduce_weight',
                 title: 'Use a little more assistance',
@@ -232,6 +337,19 @@ export function recommendDynamicDoubleProgression(input: {
     }
 
     if (anyBelowMinRange && heaviestWeightKg !== null) {
+        const correctedWeightedLoadKg = getCorrectedWeightedLoadKg(countedSets, minReps)
+
+        if (correctedWeightedLoadKg !== null) {
+            return {
+                kind: 'repeat_weight',
+                title: 'Use the corrected weight',
+                nextWeight: roundToOneDecimal(convertWeight(correctedWeightedLoadKg, 'kg', input.unit)),
+                nextReps: `${minReps}-${maxReps}`,
+                explanation:
+                    'An earlier set missed the rep range, but a later lower-weight set hit the range. Start with that corrected weight instead of reducing again from the one set that was too heavy.'
+            }
+        }
+
         return {
             kind: 'reduce_weight',
             title: 'Consider reducing weight',
