@@ -15,7 +15,7 @@ export default defineConfig({
       manifest: {
         name: 'SOLO',
         short_name: 'SOLO',
-        description: 'Gym, nutrition, and bodyweight tracking.',
+        description: 'Gym, nutrition, bodyweight, scheduling, and health tracking.',
         theme_color: '#059669',
         background_color: '#fafaf9',
         display: 'standalone',
@@ -35,6 +35,19 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          query: ['@tanstack/react-query'],
+          supabase: ['@supabase/supabase-js'],
+          charts: ['recharts'],
+          ui: ['lucide-react'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
