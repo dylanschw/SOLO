@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Activity, Apple, CalendarCheck, Dumbbell, Home, Scale, Settings } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -11,12 +11,39 @@ const navItems = [
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
+function resetScrollPosition(scrollElement: HTMLElement | null) {
+  window.scrollTo(0, 0)
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  scrollElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+}
+
 export function AppShell() {
   const location = useLocation()
+  const mainRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-  }, [location.pathname])
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    resetScrollPosition(mainRef.current)
+
+    const firstFrame = window.requestAnimationFrame(() => {
+      resetScrollPosition(mainRef.current)
+    })
+
+    const secondFrame = window.requestAnimationFrame(() => {
+      resetScrollPosition(mainRef.current)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      window.cancelAnimationFrame(secondFrame)
+    }
+  }, [location.pathname, location.search])
 
   return (
     <div className="min-h-svh bg-neutral-100 text-neutral-950 antialiased transition-colors dark:bg-black dark:text-neutral-50">
@@ -32,7 +59,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-24 pt-5 sm:px-5">
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-x-hidden px-4 pb-24 pt-5 sm:px-5">
           <Outlet />
         </main>
 
