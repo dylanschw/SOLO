@@ -1,5 +1,6 @@
+import { useEffect } from 'react'
 import { Activity, Apple, CalendarCheck, Dumbbell, Home, Scale, Settings } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
 const navItems = [
   { to: '/app/dashboard', label: 'Home', icon: Home },
@@ -11,6 +12,12 @@ const navItems = [
 ]
 
 export function AppShell() {
+  const location = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [location.pathname])
+
   return (
     <div className="min-h-svh bg-neutral-100 text-neutral-950 antialiased transition-colors dark:bg-black dark:text-neutral-50">
       <div className="mx-auto flex min-h-svh w-full max-w-md flex-col border-x border-neutral-200 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.08)] dark:border-neutral-900 dark:bg-neutral-950 dark:shadow-none">
@@ -40,10 +47,10 @@ export function AppShell() {
                   to={item.to}
                   className={({ isActive }) =>
                     [
-                      'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-medium transition',
+                      'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-[11px] font-medium transition active:translate-y-0',
                       isActive
-                        ? 'bg-neutral-950 text-white shadow-sm dark:bg-white dark:text-neutral-950'
-                        : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-500 dark:hover:bg-neutral-900 dark:hover:text-neutral-50',
+                        ? 'border-neutral-300 bg-neutral-100 text-neutral-950 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50'
+                        : 'border-transparent text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-500 dark:hover:bg-neutral-900 dark:hover:text-neutral-50',
                     ].join(' ')
                   }
                 >
